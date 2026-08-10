@@ -238,6 +238,26 @@ For the hackathon, these are **mock MCP servers**, but they're designed as inter
 ### Budget MCP
 `get_current_budget()` · `estimate_change_cost()` · `calculate_overtime()` · `calculate_vendor_cost()`
 
+### Implementing a new MCP server
+
+All 6 servers share a common transport/invocation layer, `backend/mcp_common/` (Issue #30), built on the `mcp` Python SDK's stdio transport (SPEC §5). It handles mock-latency injection (§7) and Agent Event Stream logging (§8) so a new server only needs to define its tools:
+
+```python
+# app/mcp_servers/<domain>.py
+from mcp_common.server import MCPCommonServer
+
+server = MCPCommonServer("<domain>")
+
+@server.tool(resource_arg="location_id")  # surfaces this kwarg as the event's `resource` field
+async def get_something(location_id: str) -> dict:
+    return {"location_id": location_id, ...}
+
+if __name__ == "__main__":
+    server.run()
+```
+
+Every call through `@server.tool()` automatically: publishes a `QUERYING_MCP` event, sleeps for the tool's configured latency (`server.latency_config.set_override("get_something", 2.0)` to tune it), runs the tool, then publishes `RESPONSE_RECEIVED` — or `FAILED` (re-raising the exception, so it propagates to the calling Agent per SPEC §5). See `app/mcp_servers/weather.py` for the reference implementation, and `backend/tests/test_mcp_common_*.py` / `test_weather_mcp_server.py` for usage examples, including a real stdio-subprocess round trip.
+
 ---
 
 ## Agents
