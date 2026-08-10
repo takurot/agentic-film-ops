@@ -430,14 +430,13 @@ MCP
  └─ Budget MCP
 
 Data
- ├─ SQLite / Firestore
- └─ Production Resource Graph
+ └─ SQLite（Production Resource Graph）
 
-Google Cloud
- ├─ Cloud Run
- ├─ Gemini / Vertex AI
- └─ Firestore
+External API
+ └─ Gemini API（API key auth, not via Vertex AI）
 ```
+
+**Deployment target:** local-only (decided in Issue #35). This is a hackathon live-demo project, so it runs entirely on the presenter's machine — `frontend` and `backend` started locally, data persisted in SQLite, Gemini called directly via API key. No Cloud Run / Firestore / Vertex AI deployment. This minimizes network dependency and failure points during a judged demo. Local run instructions are added alongside the project scaffolding (Issue #1).
 
 ---
 
