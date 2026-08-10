@@ -480,6 +480,7 @@ npm run lint
 cd backend
 uv venv && uv pip install -e ".[dev]"    # or: python -m venv .venv && pip install -e ".[dev]"
 source .venv/bin/activate
+python -m app.seed                       # seed the Scene 42 demo scenario into SQLite
 uvicorn app.main:app --reload            # http://localhost:8000
 pytest --cov=app                         # tests
 ruff check . && ruff format --check .    # lint
