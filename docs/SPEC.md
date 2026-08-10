@@ -990,7 +990,18 @@ Google Cloud
 全Agentを初手から実装する必要はない。以下のフェーズで段階的に構築する。
 
 ### Phase 1（コア）
-Production Dashboard → Weather incident → Orchestrator → Actor/Equipment/Location MCP → Replanning → Approval までの一連を完成させる。
+
+Production Dashboard → Weather incident → Orchestrator → Actor/Equipment/Location MCP → Replanning → Approval までの一連を完成させる。Phase 1 は担当タスク数が多く（MCPサーバー6種・Agent7種・基盤整備・UI）、単一の塊として並行着手すると依存関係の見えない手戻りが発生する。そのため以下の5サブフェーズに分割し、**直列で潰すべき区間**と**並行して着手してよい区間**を明確にする。
+
+| サブフェーズ | 性質 | 含まれる作業 | 並行度 |
+| --- | --- | --- | --- |
+| **1.1 Foundations** | 直列・クリティカルパス。ここが終わるまで他は本格着手できない | プロジェクト雛形、デプロイ方針決定、MCP transport/共通基盤、Dashboard↔Orchestrator API契約、Gemini信頼性（認証/バージョン固定/フォールバック）、Production Resource Graph データモデル＋Scene 42シード | 低（最優先で潰す） |
+| **1.2 MCP Servers** | 1.1完了後に着手可能。ドメインごとに独立 | Weather / Script / Actor / Equipment / Location / Budget の各MCPサーバー（[5章](#5-mcp-サーバー仕様)、共通基盤は上表1.1の Transport & Invocation に準拠） | 高（最大6人が同時並行可能） |
+| **1.3 Domain Agents** | 対応する1.2のMCPサーバーが揃い次第、ドメインごとに独立して着手可能 | Weather / Script / Actor / Equipment / Location / Budget の各Agent（[6章](#6-agent-仕様)） | 高（最大6人が同時並行可能） |
+| **1.4 Orchestration & Solver** | 1.3の出力を統合する層。性質上ここは直列にならざるを得ない | Production Orchestrator（[6.1](#61-production-orchestrator)）、Schedule Agent + Constraint Solver（[6.6](#66-schedule-agent)） | 低 |
+| **1.5 UI & Approval Loop** | 1.4完了後、ループを閉じる最終段階 | Main Dashboard UI（[9.1](#91-main-dashboard)）、Human Approval & Execution flow（[9.9](#99-human-approval)〜[9.10](#910-execution-画面)） | 中 |
+
+**着手順の原則:** 1.1は必ず先に完了させる（他の全サブフェーズがこれに依存する）。1.2と1.3はドメイン単位で縦割りにできるため、人数がいる場合はドメインごと（例: 1人が「Weather MCP→Weather Agent」を通しで担当）に並行させてよい。1.4と1.5は前段の成果物が揃うまで本格着手できない統合フェーズとして扱う。
 
 ### Phase 2（会話・可視化の追加）
 Manager との Mock conversation、Agent Activity 表示、MCP Activity Monitor を追加する。
