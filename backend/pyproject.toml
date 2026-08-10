@@ -38,4 +38,6 @@ line-length = 100
 # DTZ001/DTZ005: SPEC §4/§8 timestamps (e.g. "2026-09-02T14:00", "14:07:13")
 # are naive by design — the production is scheduled in a single local
 # timezone, not UTC.
-ignore = ["DTZ001", "DTZ005"]
+# B008: FastAPI's Depends() is idiomatic in argument defaults; this rule is
+# written for other frameworks where that's a real footgun.
+ignore = ["DTZ001", "DTZ005", "B008"]

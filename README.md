@@ -146,6 +146,22 @@ Agent = Reasoning (thinking / decision-making)
 MCP   = Access / Action (talking to the world)
 ```
 
+### Dashboard ↔ Orchestrator API contract
+
+The only path between the Dashboard and the Orchestrator (Issue #29, backing the "core constraint" above):
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/production/health` | Production Health summary |
+| `GET` | `/api/incidents/active` | Active incidents |
+| `POST` | `/api/incidents/{incident_id}/analyze` | Start impact analysis → `{"analysis_id": ...}` |
+| `GET` | `/api/analyses/{analysis_id}` | Analysis state (options, explainability) |
+| `POST` | `/api/analyses/{analysis_id}/decision` | Human Approval: `{"decision": "APPROVE"\|"REJECT", "option_id"?: "..."}` |
+| `GET` | `/api/analyses/{analysis_id}/execution` | Execution state |
+| `WS` | `/api/analyses/{analysis_id}/events` | Agent Event Stream, MCP calls multiplexed as `type: "MCP_CALL"` |
+
+`.../analyze` runs against an injectable `AnalysisEngine` (`app/workflow.py`) — until the Production Orchestrator (#9) provides a real one, it reports `status: "FAILED"` with an explicit "not yet implemented" explainability message rather than fabricating options. `.../decision` refuses `APPROVE` unless the analysis is `COMPLETED` with a matching `option_id` (SPEC §9.9's "NO FEASIBLE PLAN" case).
+
 ---
 
 ## Production Resource Graph
