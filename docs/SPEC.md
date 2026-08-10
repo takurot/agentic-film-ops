@@ -974,14 +974,13 @@ MCP
  └─ Budget MCP
 
 Data
- ├─ SQLite / Firestore
- └─ Production Resource Graph
+ └─ SQLite（Production Resource Graph）
 
-Google Cloud
- ├─ Cloud Run
- ├─ Gemini / Vertex AI
- └─ Firestore
+External API
+ └─ Gemini API（API key 認証。Vertex AI 経由ではない）
 ```
+
+> **デプロイ方針（Issue #35 で決定）**: このプロジェクトはハッカソンのライブデモ用途であり、審査中のネットワーク依存・障害点を最小化するため **local-only** を採用する。Cloud Run / Firestore / Vertex AI へのデプロイは行わない。永続化は SQLite、Gemini 呼び出しは Gemini API（API key 認証）を直接使用する。デモは `README.md` の手順に従いローカルで `frontend` / `backend` を起動して行う。
 
 ---
 
