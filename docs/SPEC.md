@@ -112,25 +112,32 @@ Manager      Rental       Location     Cost DB
                                 │
                            MCP Layer
                                 │
-        ┌──────────┬────────────┼────────────┬──────────┐
-        ▼          ▼            ▼            ▼          ▼
-   ACTOR MCP   EQUIPMENT    LOCATION      SCRIPT     WEATHER
-                  MCP          MCP          MCP         MCP
-        │          │            │            │          │
-        ▼          ▼            ▼            ▼          ▼
- Actor Agent  Equipment     Location      Script     Weather
-              Agent         Agent         Agent      Agent
-        │          │            │
-        ▼          ▼            ▼
-   Manager     Rental       Location
-    Mock       Company       Manager
-               Mock           Mock
+   ┌──────────┬────────────┬────────────┬──────────┬──────────┐
+   ▼          ▼            ▼            ▼          ▼          ▼
+ACTOR MCP  EQUIPMENT    LOCATION      SCRIPT     WEATHER    BUDGET
+              MCP          MCP          MCP         MCP        MCP
+   │          │            │            │          │          │
+   ▼          ▼            ▼            ▼          ▼          ▼
+Actor      Equipment    Location      Script     Weather    Budget
+Agent      Agent        Agent         Agent      Agent      Agent
+   │          │            │                                  │
+   ▼          ▼            ▼                                  ▼
+Manager    Rental       Location                            Cost DB
+ Mock      Company       Manager                             Mock
+           Mock           Mock
                                 │
                     ┌───────────▼───────────┐
                     │ Production Resource  │
                     │ Graph                │
-                    └───────────────────────┘
+                    └───────────┬───────────┘
+                                │
+                        Schedule Agent
+                    (Resource Graph + 収集済み
+                     Agent回答を入力に評価。
+                     専用MCPは持たない)
 ```
+
+**注記:** Schedule Agent は上記6つのMCPのいずれにも対応するMCPサーバーを持たない。Orchestratorが収集した Actor/Equipment/Location/Budget Agent の回答結果と Production Resource Graph を直接の入力として、内部の Constraint Solver（[13章](#13-実装優先順位フェーズ計画)参照）で評価する。詳細は [6.6](#66-schedule-agent) を参照。
 
 ### 3.2 アーキテクチャ原則（必須制約）
 
@@ -150,6 +157,32 @@ Dashboard → Orchestrator → MCP → Resource / Agent
 Agent = Reasoning（推論・判断）
 MCP   = Access / Action（アクセス・実行）
 ```
+
+### 3.4 Dashboard ↔ Orchestrator API 契約
+
+[3.2](#32-アーキテクチャ原則必須制約)の制約（UIはAgentを直接呼ばない）を実装可能にするため、Dashboard と Orchestrator 間の最小限のAPI契約をここで固定する。詳細なOpenAPI/AsyncAPI定義は実装時に別途作成してよいが、エンドポイントの形と責務は以下に従うこと。
+
+#### REST（コマンド発行・状態取得）
+
+| Method | Path | 用途 |
+| --- | --- | --- |
+| `GET` | `/api/production/health` | Production Health サマリー取得（[9.1](#91-main-dashboard)） |
+| `GET` | `/api/incidents/active` | Active Incident 一覧取得 |
+| `POST` | `/api/incidents/{incident_id}/analyze` | 「START AI IMPACT ANALYSIS」起動。Orchestratorのパイプライン（[6.1](#61-production-orchestrator)）を開始し `analysis_id` を返す |
+| `GET` | `/api/analyses/{analysis_id}` | 分析の現在状態（代替案・Explainability含む）取得 |
+| `POST` | `/api/analyses/{analysis_id}/decision` | Human Approval（[9.9](#99-human-approval)）。`{ "decision": "APPROVE" \| "REJECT", "option_id": "..." }` |
+| `GET` | `/api/analyses/{analysis_id}/execution` | Execution 結果取得（[9.10](#910-execution-画面)） |
+
+#### イベント配信（WebSocket / SSE）
+
+- エンドポイント: `WS /api/analyses/{analysis_id}/events`（またはSSE `GET /api/analyses/{analysis_id}/events/stream`）
+- ペイロードは [8.1 イベントスキーマ](#81-イベントスキーマ)に準拠
+- MCP Activity Monitor（[9.3](#93-mcp-activity-monitor)）向けに、Agentイベントとは別チャンネルで MCP call/response のログも同一ストリームに `type: "MCP_CALL"` として混在させる
+
+#### 制約
+
+- `POST /api/analyses/{analysis_id}/decision` 以外の経路でOrchestratorの状態を変更するAPIを追加してはならない（[3.2](#32-アーキテクチャ原則必須制約)）
+- Dashboardは上記APIとイベントストリームのみに依存し、Agent/MCPのエンドポイントやスキーマを直接知らない設計とする
 
 ---
 
@@ -197,7 +230,76 @@ MCP   = Access / Action（アクセス・実行）
 }
 ```
 
-### 4.4 グラフ構造イメージ
+### 4.4 Location
+
+```json
+{
+  "id": "LOC-003",
+  "name": "Rooftop, Shibuya Tower",
+  "type": "outdoor",
+  "manager": "LOCMGR-001",
+  "availability": [],
+  "daily_cost": 3000,
+  "weather_dependent": true
+}
+```
+
+### 4.5 Crew
+
+```json
+{
+  "id": "CREW-001",
+  "name": "Kenji Sato",
+  "role": "Camera Operator",
+  "availability": [],
+  "overtime_rate_per_hour": 150
+}
+```
+
+### 4.6 `availability` フィールドの形式
+
+Actor / Equipment / Location / Crew に共通する `availability` は、**既に確定している予定（busy block）の配列**として表現する。空き時間は「この配列に含まれない時間帯」として導出する（除外方式）。
+
+```json
+"availability": [
+  {
+    "scene_id": "SC-038",
+    "start": "2026-09-01T09:00",
+    "end": "2026-09-01T13:00"
+  },
+  {
+    "scene_id": "SC-042",
+    "start": "2026-09-02T14:00",
+    "end": "2026-09-02T18:00"
+  }
+]
+```
+
+Constraint Solver（[6.6](#66-schedule-agent) / [9.6](#96-replanning-画面)）は、候補スロットがこの配列内のいずれの区間とも重複しないことをもって「空き」と判定する。
+
+### 4.7 Continuity Constraints（継続性制約）
+
+Script MCP の `get_continuity_constraints()`（[5.5](#55-script-mcp)）が返すデータ構造。同一衣装・メイク・美術等の理由で撮影順序や同日撮影が拘束されるシーン間の関係を表す。
+
+```json
+{
+  "scene_id": "SC-042",
+  "must_precede": ["SC-043"],
+  "must_follow": ["SC-041"],
+  "same_day_as": [],
+  "notes": "Wardrobe continuity requires SC-042 and SC-043 to be shot on the same day."
+}
+```
+
+| フィールド | 意味 |
+| --- | --- |
+| `must_precede` | このシーンは指定シーンより前に撮影される必要がある |
+| `must_follow` | このシーンは指定シーンより後に撮影される必要がある |
+| `same_day_as` | 指定シーンと同日に撮影される必要がある |
+
+Constraint Solver は再計画候補がこれらの関係を破らないことを検証する（[9.6](#96-replanning-画面)の「✓ Continuity」に対応）。
+
+### 4.8 グラフ構造イメージ
 
 ```text
                  SCENE 42
@@ -226,6 +328,15 @@ MCP   = Access / Action（アクセス・実行）
 ## 5. MCP サーバー仕様
 
 ハッカソンでは実サービスに接続せず **Mock MCP Server** とする。ただし「本物のAPIに置き換え可能なInterface」として設計することを必須要件とする（ツールのシグネチャ・戻り値のスキーマは本番想定のまま固定する）。
+
+### Transport & Invocation（共通方針）
+
+6つのMCPサーバーすべてに共通する実装方針。個別サーバーの実装（[13章 Phase 1](#13-実装優先順位フェーズ計画)の各Issue）に先立って以下を決定・共有すること。
+
+- **プロトコル:** MCP標準の stdio transport を採用する（`mcp` Python SDK準拠）。将来的な実サービス化・他クライアントからの再利用を見据え、HTTP transportではなくstdioを基本とする。
+- **プロセス構成:** 6つのMCPサーバーは Orchestrator/Agentプロセスとは独立したサブプロセスとして起動する。Backend（FastAPI）はMCPクライアントとしてこれらに接続する。
+- **共通ライブラリ:** 6サーバーで重複するボイラープレート（サーバー起動、mockレイテンシ注入 [7章](#7-疑似遅延latency-simulation仕様)、イベントストリームへのログ送出 [8章](#8-イベントストリーム仕様)）は共通パッケージ（例: `backend/mcp_common/`）に切り出し、各MCPサーバーはこれをインポートして実装する。
+- **エラーハンドリング:** MCPツール呼び出しが失敗した場合、呼び出し元Agentは [8.2](#82-ステータス種別) の `FAILED` ステータスを発行し、Orchestratorに例外を伝播する。Orchestratorの失敗時挙動は [9.9](#99-human-approval) を参照。
 
 ### 5.1 Actor MCP
 
@@ -340,9 +451,49 @@ Execute approved plan
 9. Orchestratorへ返却
 ```
 
-### 6.3 Equipment Agent / Location Agent / Budget Agent / Schedule Agent
+### 6.3 Equipment Agent / Location Agent / Budget Agent
 
-同様に MCP を介してそれぞれのドメイン（機材・ロケーション・予算・スケジュール）の調整・評価を担当する。詳細フローは Actor Agent に準ずる。
+同様に MCP を介してそれぞれのドメイン（機材・ロケーション・予算）の調整・評価を担当する。詳細フローは Actor Agent に準ずる。
+
+### 6.4 Weather Agent
+
+天候リスクを監視し、インシデントの起点となる。他のAgentと異なり外部人物への問い合わせは発生しない（Weather MCPからの読み取りのみ）。
+
+```text
+1. Weather MCP → subscribe_weather_alert() で購読中の対象シーンを監視
+2. get_forecast() / get_weather_risk() で悪天候を検知
+3. リスク閾値（例: 降水確率80%以上）を超えたらインシデントを生成
+4. Orchestratorへ通知（Event detection のトリガー、6.1参照）
+```
+
+### 6.5 Script Agent
+
+脚本・シーンの構造情報を提供する読み取り専用のAgent。他AgentやOrchestratorからの問い合わせに応じてScript MCPを介した情報を返す。
+
+```text
+1. Script MCP → get_scene() / get_scene_requirements() でシーン要件取得
+2. get_scene_dependencies() で影響を受けるリソース（Actor/Equipment/Location）を特定
+3. get_continuity_constraints() で継続性制約（4.7参照）を取得
+4. Orchestratorへ依存関係リストを返却（Determine affected resources の入力）
+```
+
+### 6.6 Schedule Agent
+
+全ての回答（Actor/Equipment/Location/Budget Agentの結果）が揃った後に起動され、Production Resource Graph 上で再計画候補を評価する。**専用のMCPサーバーを持たず**、Resource Graphと収集済みの回答を直接の入力とする（[3.1](#31-全体構成)参照）。
+
+```text
+1. 収集済みAgent回答 + Production Resource Graph を入力として受け取る
+2. 候補となるスロット（日時・代替リソースの組み合わせ）を列挙
+3. 各候補について Constraint Solver で以下を検証:
+   - Cast / Crew の availability（4.6）に矛盾がないか
+   - Equipment / Location の availability に矛盾がないか
+   - Continuity Constraints（4.7）に違反しないか
+   - Budget MCP から見積もったコスト増分
+4. 実行可能な候補を Cost impact（低いほど良い）・Schedule delay（少ないほど良い）・Risk（LOW/MEDIUM/HIGHのスコア）の重み付き評価でランキング
+5. 最上位候補に "RECOMMENDED" を付与し、Explainability（9.8）の根拠データを付随させてOrchestratorへ返却
+```
+
+**評価関数について:** ハッカソンMVPでは、Cost impact・Schedule delay・Risk の3軸を単純な重み付き線形和で評価する（重みは実装時に固定値で設定してよい）。重要なのは固定のダミー数値を表示するのではなく、実際のリソース状態に基づいて計算することである（[9.6](#96-replanning-画面)参照）。
 
 ---
 
@@ -377,6 +528,16 @@ Vendor confirmed
 ```
 
 各 Agent の遅延値は設定可能（config化）とし、デモ中に調整できるようにする。
+
+### 実 Gemini レイテンシとの関係
+
+Orchestrator / Agent の推論は実際にGeminiを呼び出す（[11章](#11-mock-と-real-の境界)）ため、可変の実レイテンシが既に発生している。演出用の疑似遅延はこれに**上乗せする追加待機**ではなく、**「実測レイテンシを含めて最低でもこの秒数は見せる」という下限（最小表示時間）**として実装する。
+
+```text
+表示時間 = max(疑似遅延の目標値, 実際のGemini応答時間)
+```
+
+これにより、Gemini呼び出しが想定より遅い場合でも [2.2 デモ時間構成](#22-デモ時間構成目安-約4分) の総尺を不必要に超過させず、逆に速すぎる場合のみ演出上の最小待機を適用できる。
 
 ---
 
@@ -637,9 +798,20 @@ $21,400 lower cost
             ┌──────────┴─────────┐
             ↓                    ↓
          APPROVE                REJECT
-            ↓
-      Execute changes
+            ↓                    ↓
+      Execute changes      Return to Option
+                            Comparison（9.7）
 ```
+
+**APPROVE / REJECT の挙動:**
+
+- **APPROVE:** 選択したOptionを確定し、[9.10 Execution](#910-execution-画面)へ遷移する。Production Resource Graph・関連する仮予約（`hold_*()`系）は Execution 完了時に確定状態へ更新される。
+- **REJECT:** Production Resource Graph・全リソースの状態は変更しない（仮予約もロールバックまたは維持し、確定操作は一切行わない）。Producer は [9.7 Option Comparison](#97-最終提案画面option-比較) 画面に戻り、別のOptionを選ぶか、Orchestratorに再評価を依頼する。
+
+**Agentイベントが `FAILED` になった場合（[8.2](#82-ステータス種別)）:**
+
+- 個別Agent（例: Actor Agentのmanager応答待ちがタイムアウト）が `FAILED` を報告した場合、Orchestratorはそのリソースを「制約未確認」として扱い、当該リソースを含まない代替案があればそれを提示する
+- 全ての実行可能な代替案が算出できない場合、Orchestratorは Option Comparison 画面に「NO FEASIBLE PLAN」状態を表示し、Producerに手動対応を促す（自動実行は行わない）
 
 ### 9.10 Execution 画面
 
@@ -697,6 +869,8 @@ Cost impact
 +$8,400
 ```
 
+> **注意:** 上記の秒数・件数（`2 min 47 sec` / `AI actions 37` / `MCP calls 52` 等）はモックアップ用の**例示値**であり、固定値をハードコードしてはならない。実行時のイベントストリーム（[8章](#8-イベントストリーム仕様)）から実測して算出すること。[2.2 デモ時間構成](#22-デモ時間構成目安-約4分)の目安（約4分）とは計測対象の区間が異なる（§2.2はデモ全体の進行時間、本画面はインシデント検知〜解決の実測時間）ため、両者が一致しなくてよい。
+
 ---
 
 ## 10. プロモーション動画（Remotion）
@@ -732,7 +906,9 @@ Cost impact
 
 ### 10.4 実装優先順位への位置付け
 
-プロモーション動画はUI実装（[9章](#9-ui仕様)）に依存するため、[13章 Phase 3](#phase-3ネットワーク可視化) 完了後、[Phase 4（仕上げ）](#phase-4仕上げ)の一部として制作する。UIコンポーネントの流用を前提とするため、UI実装より先行しては着手しない。
+プロモーション動画はUI実装（[9章](#9-ui仕様)）に依存するため、[13章 Phase 3](#phase-3ネットワーク可視化) 完了後に着手する。UIコンポーネントの流用を前提とするため、UI実装より先行しては着手しない。
+
+**重要:** [10.1](#101-目的)の通りこの動画は「ライブデモ失敗時のフォールバック」を兼ねる。Phase 4（仕上げ）はハッカソン終盤で時間が圧縮されやすく、Phase 4の最後に動画制作を置くとフォールバックが間に合わない事態になりうる。そのため、**素材録画（Remotionコンポーネントでの撮影・レンダリング）はPhase 3完了直後・Phase 4着手前に完了させる**。ナレーション/字幕/BGMの合成やクオリティの微調整のみをPhase 4の作業として残すことを許容する（[13章 Phase 3](#13-実装優先順位フェーズ計画)参照）。
 
 ### 10.5 成果物
 
@@ -748,7 +924,7 @@ Cost impact
 | Component | MVP 実装方針 |
 | --- | --- |
 | Gemini Orchestrator | **Real** |
-| Agent reasoning | **Real** |
+| Agent reasoning（Actor/Equipment/Location/Budget/Weather/Script Agent含む） | **Real** |
 | MCP calls | **Real** |
 | Resource data | Mock |
 | Actor | Mock |
@@ -784,8 +960,10 @@ Agent
  ├─ Actor Agent
  ├─ Equipment Agent
  ├─ Location Agent
- ├─ Schedule Agent
- └─ Budget Agent
+ ├─ Budget Agent
+ ├─ Weather Agent
+ ├─ Script Agent
+ └─ Schedule Agent（専用MCPなし、3.1参照）
 
 MCP
  ├─ Actor MCP
@@ -818,10 +996,10 @@ Production Dashboard → Weather incident → Orchestrator → Actor/Equipment/L
 Manager との Mock conversation、Agent Activity 表示、MCP Activity Monitor を追加する。
 
 ### Phase 3（ネットワーク可視化）
-Resource Graph visualization、Option比較UI、Execution animation を追加する。
+Resource Graph visualization、Option比較UI、Execution animation を追加する。**完了後、Phase 4着手前に、プロモーション動画（[10章](#10-プロモーション動画remotion)）の素材録画・レンダリングまでを完了させる**（デモ失敗時のフォールバックを早期に確保するため）。
 
 ### Phase 4（仕上げ）
-UI polish とデモシナリオの固定化・リハーサル。
+UI polish とデモシナリオの固定化・リハーサル。プロモーション動画のナレーション/字幕/BGM合成と最終調整。
 
 ---
 
