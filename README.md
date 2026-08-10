@@ -432,6 +432,19 @@ Not everything is mocked. The rule: **the world is mocked, but the AI system ope
 | Dashboard | **Real** |
 | Agent event stream | **Real** |
 
+### Gemini setup
+
+Agent/Orchestrator reasoning calls Gemini directly via API key (per the local-only decision, #35 — not Vertex AI):
+
+1. Get an API key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+2. `cp backend/.env.example backend/.env` and fill in `GEMINI_API_KEY`.
+3. `backend/app/main.py` loads `backend/.env` on startup (`python-dotenv`); no manual `export` needed.
+
+`app/gemini_client.py` (Issue #33) wraps every call with:
+- a **pinned model version** (`GEMINI_MODEL`, defaults to a concrete version — never a `-latest` alias that could silently change behavior mid-demo)
+- **one retry with backoff** on rate-limit (429) or transient (5xx) errors or a timeout, then a clean `GeminiUnavailableError` — never a hang or an unhandled crash. Agents (once implemented) catch this and report a `FAILED` Agent Event Stream status (SPEC §8.2).
+- `with_min_display_time(coro, min_seconds)`, applying [Latency Simulation](#latency-simulation)'s §7 rule to real Gemini calls: `display time = max(target artificial delay, actual Gemini response time)` — the artificial delay is a floor, never additive to real latency.
+
 ---
 
 ## Tech Stack
