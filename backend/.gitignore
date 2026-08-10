@@ -1,0 +1,19 @@
+# virtual environment
+.venv/
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# local database
+*.db
+*.sqlite3
+
+# env files
+.env

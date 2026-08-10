@@ -30,6 +30,8 @@ For the full specification, see [`docs/SPEC.md`](docs/SPEC.md). The original con
 - [Promo Video (Remotion)](#promo-video-remotion)
 - [Mock vs. Real Boundary](#mock-vs-real-boundary)
 - [Tech Stack](#tech-stack)
+- [Repository Structure](#repository-structure)
+- [Local Development](#local-development)
 - [Implementation Phases](#implementation-phases)
 - [Non-Functional Requirements](#non-functional-requirements)
 - [Success Criteria](#success-criteria)
@@ -436,7 +438,54 @@ External API
  └─ Gemini API（API key auth, not via Vertex AI）
 ```
 
-**Deployment target:** local-only (decided in Issue #35). This is a hackathon live-demo project, so it runs entirely on the presenter's machine — `frontend` and `backend` started locally, data persisted in SQLite, Gemini called directly via API key. No Cloud Run / Firestore / Vertex AI deployment. This minimizes network dependency and failure points during a judged demo. Local run instructions are added alongside the project scaffolding (Issue #1).
+**Deployment target:** local-only (decided in Issue #35). This is a hackathon live-demo project, so it runs entirely on the presenter's machine — `frontend` and `backend` started locally, data persisted in SQLite, Gemini called directly via API key. No Cloud Run / Firestore / Vertex AI deployment. This minimizes network dependency and failure points during a judged demo.
+
+---
+
+## Repository Structure
+
+```text
+.
+├─ frontend/          # Next.js (App Router) + Tailwind + React Flow dashboard
+│  └─ src/
+│     ├─ app/         # Routes/pages
+│     └─ lib/         # Client-side helpers (e.g. event stream client)
+├─ backend/           # FastAPI app
+│  └─ app/
+│     ├─ main.py      # App entrypoint + health check
+│     ├─ mcp_servers/ # MCP server implementations (Phase 1.2)
+│     └─ agents/      # Domain + Orchestrator agents (Phase 1.3/1.4)
+├─ docs/
+│  ├─ SPEC.md         # Full specification (primary source of truth)
+│  ├─ IDEA.md         # Original concept notes
+│  └─ WORKFLOW.md     # Issue implementation workflow
+└─ README.md
+```
+
+## Local Development
+
+**Frontend** (Next.js):
+
+```bash
+cd frontend
+npm install
+npm run dev      # http://localhost:3000
+npm test         # vitest
+npm run lint
+```
+
+**Backend** (FastAPI):
+
+```bash
+cd backend
+uv venv && uv pip install -e ".[dev]"    # or: python -m venv .venv && pip install -e ".[dev]"
+source .venv/bin/activate
+uvicorn app.main:app --reload            # http://localhost:8000
+pytest --cov=app                         # tests
+ruff check . && ruff format --check .    # lint
+```
+
+`GET /api/production/health` returns `{"status": "ok"}` once the backend is running.
 
 ---
 
