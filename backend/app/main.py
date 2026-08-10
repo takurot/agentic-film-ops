@@ -1,8 +1,6 @@
 from fastapi import FastAPI
 
+from app.api import router
+
 app = FastAPI(title="Agentic FilmOps Orchestrator")
-
-
-@app.get("/api/production/health")
-def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+app.include_router(router)
