@@ -4,6 +4,14 @@
 Agent events (this module's `AgentEvent`) and MCP call events
 (`mcp_common.events.MCPCallEvent`) are multiplexed onto the same
 per-analysis stream, distinguished by `type == "MCP_CALL"` for the latter.
+
+`AnalysisEventBus` itself is keyed by a generic `channel` string, not only
+`analysis_id` — an `Analysis` row (and its id) only exists once a human has
+triggered impact analysis for an already-detected Incident (SPEC §9.1's
+"START AI IMPACT ANALYSIS"). Agents that *originate* incidents (e.g.
+WeatherAgent, SPEC §6.4) run before that id exists, so they publish on a
+different channel (see `scene_channel`); `/api/analyses/{id}/events`
+(app/api.py) simply subscribes with `analysis_id` as the channel, unchanged.
 """
 
 import asyncio
@@ -62,8 +70,14 @@ class AgentEvent(BaseModel):
 AnalysisEvent = AgentEvent | MCPCallEvent
 
 
+def scene_channel(scene_id: str) -> str:
+    """Event bus channel for an Agent monitoring a scene ahead of any Incident
+    or Analysis existing (e.g. WeatherAgent, SPEC §6.4)."""
+    return f"scene:{scene_id}"
+
+
 class AnalysisEventBus:
-    """Per-analysis in-process pub/sub feeding the WS event stream.
+    """Per-channel in-process pub/sub feeding the WS event stream.
 
     Each WebSocket connection subscribes its own `asyncio.Queue`; anything
     server-side (Agents, MCP servers via mcp_common, or tests) can publish
@@ -73,17 +87,17 @@ class AnalysisEventBus:
     def __init__(self) -> None:
         self._queues: dict[str, list[asyncio.Queue[AnalysisEvent]]] = {}
 
-    def publish(self, analysis_id: str, event: AnalysisEvent) -> None:
-        for queue in self._queues.get(analysis_id, []):
+    def publish(self, channel: str, event: AnalysisEvent) -> None:
+        for queue in self._queues.get(channel, []):
             queue.put_nowait(event)
 
-    def subscribe(self, analysis_id: str) -> "asyncio.Queue[AnalysisEvent]":
+    def subscribe(self, channel: str) -> "asyncio.Queue[AnalysisEvent]":
         queue: asyncio.Queue[AnalysisEvent] = asyncio.Queue()
-        self._queues.setdefault(analysis_id, []).append(queue)
+        self._queues.setdefault(channel, []).append(queue)
         return queue
 
-    def unsubscribe(self, analysis_id: str, queue: "asyncio.Queue[AnalysisEvent]") -> None:
-        listeners = self._queues.get(analysis_id, [])
+    def unsubscribe(self, channel: str, queue: "asyncio.Queue[AnalysisEvent]") -> None:
+        listeners = self._queues.get(channel, [])
         if queue in listeners:
             listeners.remove(queue)
 
