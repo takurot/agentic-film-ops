@@ -7,6 +7,7 @@ per-analysis stream, distinguished by `type == "MCP_CALL"` for the latter.
 """
 
 import asyncio
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -34,6 +35,28 @@ class AgentEvent(BaseModel):
     status: AgentEventStatus
     message: str
     resource: str | None = None
+
+    @classmethod
+    def create(
+        cls,
+        *,
+        agent: str,
+        type: str,  # matches SPEC §8.1's field name
+        status: AgentEventStatus,
+        message: str,
+        resource: str | None = None,
+    ) -> "AgentEvent":
+        """Build an event with `timestamp` filled in, mirroring
+        `MCPCallEvent.create` (mcp_common/events.py) so Agents don't each
+        format `datetime.now()` themselves."""
+        return cls(
+            timestamp=datetime.now().strftime("%H:%M:%S"),
+            agent=agent,
+            type=type,
+            status=status,
+            message=message,
+            resource=resource,
+        )
 
 
 AnalysisEvent = AgentEvent | MCPCallEvent
