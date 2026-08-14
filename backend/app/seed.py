@@ -23,6 +23,7 @@ def seed_scene_42(session: Session) -> Scene:
     talent_agency = Manager(id="MGR-001", name="Talent Agency — Emma Carter's Agent")
     daniels_manager = Manager(id="MGR-002", name="Talent Agency — Daniel's Agent")
     location_manager = Manager(id="LOCMGR-001", name="Shibuya Tower Building Management")
+    studio_b_manager = Manager(id="LOCMGR-002", name="Studio B Facilities")
 
     emma = Actor(
         id="ACT-001",
@@ -69,6 +70,20 @@ def seed_scene_42(session: Session) -> Scene:
         availability=[SCENE_42_BLOCK],
         daily_cost=3000,
         weather_dependent=True,
+        status="available",
+    )
+    # Indoor alternative for Scene 42's rooftop (SPEC §9.6/§9.7/§9.10's "Studio
+    # B" replan transcript) — Location MCP's find_alternative_locations()
+    # (SPEC §5.3) surfaces this as a substitute when LOC-003 is weather-risked.
+    studio_b = Location(
+        id="LOC-STUDIO-B",
+        name="Studio B",
+        type="indoor",
+        manager=studio_b_manager,
+        availability=[],
+        daily_cost=2200,
+        weather_dependent=False,
+        status="available",
     )
 
     kenji = Crew(
@@ -92,6 +107,7 @@ def seed_scene_42(session: Session) -> Scene:
     )
 
     session.add(scene)
+    session.add(studio_b)  # not linked via any Scene relationship, so add() explicitly
     session.commit()
     return scene
 

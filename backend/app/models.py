@@ -82,6 +82,10 @@ class Location(Base):
     availability: Mapped[list] = mapped_column(JSON, default=list)
     daily_cost: Mapped[float] = mapped_column(Float)
     weather_dependent: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Not in SPEC §4.4's example JSON — added for Location MCP's
+    # hold_location()/confirm_location() (SPEC §5.3), which need somewhere
+    # to record booking state. Mirrors Actor.status (§4.2).
+    status: Mapped[str] = mapped_column(String, default="available")
 
 
 class Crew(Base):
