@@ -12,12 +12,14 @@ Wraps the `google-genai` SDK with:
 
 import asyncio
 import os
-import time
 from dataclasses import dataclass, field
 
 from google import genai
 from google.genai import errors
 from google.genai.types import GenerateContentResponse
+
+from app.latency import with_min_display_time
+
 
 # A concrete, versioned model — not a "-latest" alias that could silently
 # change behavior mid-demo. Override via GEMINI_MODEL if this needs bumping.
@@ -90,16 +92,10 @@ class GeminiClient:
         ) from last_exc
 
 
-async def with_min_display_time(coro, min_seconds: float):
-    """表示時間 = max(疑似遅延の目標値, 実際のGemini応答時間) (SPEC §7).
-
-    Runs `coro`; if it finishes faster than `min_seconds`, waits out the
-    remainder. Never waits *in addition to* an already-slow real call.
-    """
-    start = time.monotonic()
-    result = await coro
-    elapsed = time.monotonic() - start
-    remaining = min_seconds - elapsed
-    if remaining > 0:
-        await asyncio.sleep(remaining)
-    return result
+__all__ = [
+    "DEFAULT_MODEL",
+    "GeminiClient",
+    "GeminiConfig",
+    "GeminiUnavailableError",
+    "with_min_display_time",
+]
