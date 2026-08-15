@@ -6,6 +6,7 @@ real local dev database.
 """
 
 from datetime import datetime
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -21,7 +22,7 @@ from app.workflow import (
 
 
 class FakeEngineWithOption(AnalysisEngine):
-    async def run_analysis(self, incident: Incident) -> AnalysisOutcome:
+    async def run_analysis(self, incident: Incident, analysis_id: str) -> AnalysisOutcome:
         return AnalysisOutcome(
             status="COMPLETED",
             options=[
@@ -35,6 +36,15 @@ class FakeEngineWithOption(AnalysisEngine):
             ],
             explainability="Both principal actors are available Wednesday afternoon.",
         )
+
+    async def execute_plan(
+        self,
+        analysis_id: str,
+        option: dict,
+        incident_id: str,
+        db: Any = None,
+    ) -> list[str]:
+        return ["Step 1: Confirmed", "Step 2: Completed"]
 
 
 @pytest.fixture
@@ -111,9 +121,26 @@ def test_analyze_unknown_incident_returns_404(api_client):
     assert response.status_code == 404
 
 
-def test_analyze_with_default_engine_reports_orchestrator_not_yet_implemented(api_client):
+def test_analyze_with_not_implemented_engine_reports_failure(api_client):
     client, engine = api_client
     incident_id = seed_incident(engine)
+
+    from app.workflow import AnalysisEngine, AnalysisOutcome
+
+    class StubEngine(AnalysisEngine):
+        async def run_analysis(self, incident: Incident, analysis_id: str) -> AnalysisOutcome:
+            return AnalysisOutcome(
+                status="FAILED",
+                options=[],
+                explainability="Stub failure message.",
+            )
+
+        async def execute_plan(
+            self, analysis_id: str, option: dict, incident_id: str, db: Any = None
+        ) -> list[str]:
+            return []
+
+    app.dependency_overrides[get_analysis_engine] = lambda: StubEngine()
 
     analyze_response = client.post(f"/api/incidents/{incident_id}/analyze")
     assert analyze_response.status_code == 200
@@ -124,7 +151,7 @@ def test_analyze_with_default_engine_reports_orchestrator_not_yet_implemented(ap
     body = get_response.json()
     assert body["status"] == "FAILED"
     assert body["options"] == []
-    assert "Orchestrator" in body["explainability"]
+    assert "Stub failure message" in body["explainability"]
 
 
 def test_get_unknown_analysis_returns_404(api_client):
@@ -137,6 +164,19 @@ def test_get_unknown_analysis_returns_404(api_client):
 
 def test_decision_with_no_feasible_options_is_rejected(api_client):
     client, engine = api_client
+
+    from app.workflow import AnalysisEngine, AnalysisOutcome
+
+    class EmptyOptionsEngine(AnalysisEngine):
+        async def run_analysis(self, incident: Incident, analysis_id: str) -> AnalysisOutcome:
+            return AnalysisOutcome(status="COMPLETED", options=[], explainability="None")
+
+        async def execute_plan(
+            self, analysis_id: str, option: dict, incident_id: str, db: Any = None
+        ) -> list[str]:
+            return []
+
+    app.dependency_overrides[get_analysis_engine] = lambda: EmptyOptionsEngine()
     incident_id = seed_incident(engine)
     analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
 
@@ -163,11 +203,12 @@ def test_approve_with_a_valid_option_starts_execution(api_client):
     body = response.json()
     assert body["decision"] == "APPROVE"
     assert body["decided_option_id"] == "A"
-    assert body["execution_status"] == "IN_PROGRESS"
+    assert body["execution_status"] == "COMPLETED"
 
     execution = client.get(f"/api/analyses/{analysis_id}/execution")
     assert execution.status_code == 200
-    assert execution.json()["status"] == "IN_PROGRESS"
+    assert execution.json()["status"] == "COMPLETED"
+    assert len(execution.json()["steps"]) == 2
 
 
 def test_approve_with_an_unknown_option_id_is_rejected(api_client):
@@ -219,6 +260,7 @@ def test_execution_for_unknown_analysis_returns_404(api_client):
 
 def test_events_websocket_streams_published_events(api_client):
     client, engine = api_client
+    app.dependency_overrides[get_analysis_engine] = lambda: FakeEngineWithOption()
     incident_id = seed_incident(engine)
     analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
 
@@ -244,6 +286,7 @@ def test_events_websocket_streams_published_events(api_client):
 
 def test_events_websocket_also_streams_mcp_call_events(api_client):
     client, engine = api_client
+    app.dependency_overrides[get_analysis_engine] = lambda: FakeEngineWithOption()
     incident_id = seed_incident(engine)
     analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
 

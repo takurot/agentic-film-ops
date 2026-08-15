@@ -72,19 +72,24 @@ async def analyze_incident(
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
 
-    outcome = await engine.run_analysis(incident)
-
+    analysis_id = f"AN-{uuid.uuid4().hex[:8]}"
     analysis = Analysis(
-        analysis_id=f"AN-{uuid.uuid4().hex[:8]}",
+        analysis_id=analysis_id,
         incident_id=incident_id,
-        status=outcome.status,
-        options=outcome.options,
-        explainability=outcome.explainability,
+        status="ANALYZING",
+        options=[],
     )
     db.add(analysis)
     db.commit()
 
-    return {"analysis_id": analysis.analysis_id}
+    outcome = await engine.run_analysis(incident, analysis_id)
+
+    analysis.status = outcome.status
+    analysis.options = outcome.options
+    analysis.explainability = outcome.explainability
+    db.commit()
+
+    return analysis_to_schema(analysis).model_dump(mode="json")
 
 
 @router.get("/api/analyses/{analysis_id}")
@@ -96,8 +101,11 @@ def get_analysis(analysis_id: str, db: Session = Depends(get_db_session)) -> dic
 
 
 @router.post("/api/analyses/{analysis_id}/decision")
-def decide_analysis(
-    analysis_id: str, request: DecisionRequest, db: Session = Depends(get_db_session)
+async def decide_analysis(
+    analysis_id: str,
+    request: DecisionRequest,
+    db: Session = Depends(get_db_session),
+    engine: AnalysisEngine = Depends(get_analysis_engine),
 ) -> dict:
     analysis = db.get(Analysis, analysis_id)
     if analysis is None:
@@ -106,12 +114,23 @@ def decide_analysis(
         raise HTTPException(status_code=409, detail="Analysis already decided")
 
     if request.decision == "APPROVE":
-        option_ids = {option["option_id"] for option in analysis.options}
-        if analysis.status != "COMPLETED" or request.option_id not in option_ids:
+        option_dict = {option["option_id"]: option for option in analysis.options}
+        if analysis.status != "COMPLETED" or request.option_id not in option_dict:
             raise HTTPException(status_code=409, detail="No feasible option to approve")
         analysis.decision = "APPROVE"
         analysis.decided_option_id = request.option_id
         analysis.execution_status = "IN_PROGRESS"
+        db.commit()
+
+        # Execute approved plan across MCP servers
+        steps = await engine.execute_plan(
+            analysis_id=analysis_id,
+            option=option_dict[request.option_id],
+            incident_id=analysis.incident_id,
+            db=db,
+        )
+        analysis.execution_steps = steps
+        analysis.execution_status = "COMPLETED"
     else:
         analysis.decision = "REJECT"
 

@@ -199,7 +199,21 @@ async def test_sse_generator_streams_and_replays_events(test_db):
         db.close()
 
 
+from app.workflow import AnalysisEngine, AnalysisOutcome, get_analysis_engine
+
+
+class StubEventStreamEngine(AnalysisEngine):
+    async def run_analysis(self, incident, analysis_id: str) -> AnalysisOutcome:
+        return AnalysisOutcome(status="COMPLETED", options=[], explainability=None)
+
+    async def execute_plan(
+        self, analysis_id: str, option: dict, incident_id: str, db=None
+    ) -> list[str]:
+        return []
+
+
 def test_websocket_endpoint_streams_mcp_and_agent_events(test_db):
+    app.dependency_overrides[get_analysis_engine] = lambda: StubEventStreamEngine()
     client = TestClient(app)
     incident_id = seed_test_incident(test_db)
     analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
@@ -231,3 +245,5 @@ def test_websocket_endpoint_streams_mcp_and_agent_events(test_db):
         assert recv2["type"] == "MCP_CALL"
         assert recv2["server"] == "equipment"
         assert recv2["tool"] == "check_availability"
+
+    app.dependency_overrides.clear()

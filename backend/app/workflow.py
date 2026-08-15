@@ -10,7 +10,7 @@ fabricating options or a fake success.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String
@@ -89,30 +89,36 @@ class AnalysisOutcome:
 
 
 class AnalysisEngine(ABC):
-    """Runs impact analysis for an incident. Issue #9 provides the real,
-    Gemini-driven implementation; see `NotImplementedAnalysisEngine` below.
-    """
+    """Runs impact analysis and plan execution for an incident (SPEC §6.1)."""
 
     @abstractmethod
-    async def run_analysis(self, incident: Incident) -> AnalysisOutcome: ...
+    async def run_analysis(self, incident: Incident, analysis_id: str) -> AnalysisOutcome: ...
+
+    @abstractmethod
+    async def execute_plan(
+        self,
+        analysis_id: str,
+        option: dict,
+        incident_id: str,
+        db: Any = None,
+    ) -> list[str]: ...
 
 
-class NotImplementedAnalysisEngine(AnalysisEngine):
-    """Default engine until the Production Orchestrator (#9) is implemented."""
-
-    async def run_analysis(self, incident: Incident) -> AnalysisOutcome:
-        return AnalysisOutcome(
-            status="FAILED",
-            options=[],
-            explainability="Production Orchestrator not yet implemented (Issue #9).",
-        )
+_custom_engine: AnalysisEngine | None = None
 
 
-_default_engine = NotImplementedAnalysisEngine()
+def set_analysis_engine(engine: AnalysisEngine | None) -> None:
+    global _custom_engine
+    _custom_engine = engine
 
 
 def get_analysis_engine() -> AnalysisEngine:
-    return _default_engine
+    if _custom_engine is not None:
+        return _custom_engine
+    # Lazily instantiate ProductionOrchestrator
+    from app.orchestrator import ProductionOrchestrator
+
+    return ProductionOrchestrator()
 
 
 def analysis_to_schema(analysis: Analysis) -> AnalysisSchema:
