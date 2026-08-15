@@ -20,7 +20,6 @@ from google.genai.types import GenerateContentResponse
 
 from app.latency import with_min_display_time
 
-
 # A concrete, versioned model — not a "-latest" alias that could silently
 # change behavior mid-demo. Override via GEMINI_MODEL if this needs bumping.
 DEFAULT_MODEL = "gemini-2.5-flash"

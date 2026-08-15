@@ -4,14 +4,24 @@ This is the *only* path the Dashboard may use to read or change Orchestrator
 state (SPEC §3.2) — no route here does so outside of `.../decision`.
 """
 
+import asyncio
 import uuid
+from collections.abc import AsyncGenerator
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db_session
-from app.events import AgentEvent, default_event_bus
+from app.events import AnalysisEvent, default_event_bus
 from app.models import Scene
 from app.workflow import (
     Analysis,
@@ -122,14 +132,52 @@ def get_execution(analysis_id: str, db: Session = Depends(get_db_session)) -> di
 
 
 @router.websocket("/api/analyses/{analysis_id}/events")
-async def analysis_events(websocket: WebSocket, analysis_id: str) -> None:
+async def analysis_events_ws(websocket: WebSocket, analysis_id: str) -> None:
+    """WebSocket stream of Agent and MCP events for an analysis (SPEC §3.4, §8)."""
     await websocket.accept()
-    queue = default_event_bus.subscribe(analysis_id)
+    queue = default_event_bus.subscribe(analysis_id, replay_history=True)
     try:
         while True:
-            event: AgentEvent = await queue.get()
+            event: AnalysisEvent = await queue.get()
             await websocket.send_json(event.model_dump(mode="json"))
     except WebSocketDisconnect:
         pass
     finally:
         default_event_bus.unsubscribe(analysis_id, queue)
+
+
+@router.get("/api/analyses/{analysis_id}/events/stream")
+async def analysis_events_sse(
+    analysis_id: str,
+    db: Session = Depends(get_db_session),
+) -> StreamingResponse:
+    """Server-Sent Events (SSE) stream of Agent and MCP events (SPEC §3.4, §8)."""
+    analysis = db.get(Analysis, analysis_id)
+    if analysis is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        queue = default_event_bus.subscribe(analysis_id, replay_history=True)
+        try:
+            while True:
+                try:
+                    event: AnalysisEvent = await asyncio.wait_for(queue.get(), timeout=15.0)
+                    payload = event.model_dump_json()
+                    yield f"data: {payload}\n\n"
+                except TimeoutError:
+                    # Keepalive comment (SPEC §8)
+                    yield ": keepalive\n\n"
+        except (asyncio.CancelledError, GeneratorExit):
+            pass
+        finally:
+            default_event_bus.unsubscribe(analysis_id, queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
