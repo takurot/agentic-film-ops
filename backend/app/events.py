@@ -49,11 +49,14 @@ class AgentEvent(BaseModel):
         cls,
         *,
         agent: str,
-        type: str,  # mirrors the SPEC §8.1 field name
+        type: str,  # matches SPEC §8.1's field name
         status: AgentEventStatus,
         message: str,
         resource: str | None = None,
     ) -> "AgentEvent":
+        """Build an event with `timestamp` filled in, mirroring
+        `MCPCallEvent.create` (mcp_common/events.py) so Agents don't each
+        format `datetime.now()` themselves."""
         return cls(
             timestamp=datetime.now().strftime("%H:%M:%S"),
             agent=agent,
