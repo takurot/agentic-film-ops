@@ -190,13 +190,25 @@ cd frontend && npm run lint
 Skill("code-review")
 ```
 
+また、**OCR CLI** を使ったブランチ間差分のコードレビューも実施する:
+
+```bash
+ocr review --from main --to feature-branch
+```
+
+- `--from`: 比較元ブランチ（通常は `main`）
+- `--to`: 比較先ブランチ（レビュー対象のフィーチャーブランチ）
+- 例: `ocr review --from main --to issue/14-schedule-agent`
+
+このコマンドは、指定した2ブランチ間の差分に対して自動コードレビューを実行し、問題点や改善提案を出力する。PR作成前のセルフレビューとして活用すること。
+
 - 重点観点:
   - `docs/SPEC.md` / Issue の Acceptance Criteria とのズレ
   - [3.2 アーキテクチャ制約](../docs/SPEC.md#32-アーキテクチャ原則必須制約)（UI→Orchestrator→MCPの経路遵守）の崩れ
   - シークレット・認証情報の扱い（`security-review` Skillも併用）
   - テスト不足、回帰リスク
   - 不要な scope creep や関連しない変更
-- P1/P2 相当の指摘は必ず修正する。修正後は関連テストを再実行し、必要なら `Skill("code-review")` を再実行する。
+- P1/P2 相当の指摘は必ず修正する。修正後は関連テストを再実行し、必要なら `Skill("code-review")` または `ocr review` を再実行する。
 
 > **`code-review ultra`（マルチエージェントのクラウドレビュー）について**: これはユーザートリガー専用のコマンドであり、AIエージェントが自律的に起動することはできない（課金を伴うため）。自律実行フローでは通常の `Skill("code-review")` を用いる。ユーザーがより厳密なレビューを希望する場合は、その旨をユーザーに提案するに留める。
 
