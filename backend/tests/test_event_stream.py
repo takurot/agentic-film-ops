@@ -12,7 +12,13 @@ from app.events import (
     default_event_bus,
 )
 from app.main import app
-from app.workflow import Analysis, Incident
+from app.workflow import (
+    Analysis,
+    AnalysisEngine,
+    AnalysisOutcome,
+    Incident,
+    get_analysis_engine,
+)
 from mcp_common.events import MCPCallEvent, default_event_sink
 
 
@@ -197,9 +203,6 @@ async def test_sse_generator_streams_and_replays_events(test_db):
         assert default_event_bus.subscriber_count(analysis_id) == 0
     finally:
         db.close()
-
-
-from app.workflow import AnalysisEngine, AnalysisOutcome, get_analysis_engine
 
 
 class StubEventStreamEngine(AnalysisEngine):

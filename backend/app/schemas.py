@@ -6,6 +6,7 @@ for use as API response bodies (Issue #29).
 """
 
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel
 
@@ -118,9 +119,6 @@ def scene_to_schema(scene: Scene) -> SceneSchema:
         crew=[c.id for c in scene.crew],
         scheduled=scene.scheduled,
     )
-
-
-from enum import Enum
 
 
 class TodaySceneStatus(str, Enum):

@@ -193,7 +193,12 @@ class ConstraintSolver:
 
             # 2. Location Constraints
             loc = next(
-                (l for l in input_data.locations if l.location_id == candidate.location_id), None
+                (
+                    loc_cand
+                    for loc_cand in input_data.locations
+                    if loc_cand.location_id == candidate.location_id
+                ),
+                None,
             )
             if loc:
                 if loc.weather_dependent and loc.has_weather_risk:

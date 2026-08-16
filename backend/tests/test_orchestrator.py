@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
+import app.db as db_module
 from app.db import create_db_engine, get_db_session, get_session, init_db
 from app.events import AnalysisEventBus
 from app.main import app
@@ -24,9 +25,6 @@ def make_gemini_stub() -> AsyncMock:
     )
     stub.generate_content = AsyncMock(return_value=fake_response)
     return stub
-
-
-import app.db as db_module
 
 
 @pytest.fixture
