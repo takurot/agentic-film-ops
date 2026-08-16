@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useEffect } from "react";
-import type { AnalysisEvent, MCPCallEvent, AgentEvent } from "@/lib/eventStream";
+import type { AnalysisEvent } from "@/lib/eventStream";
 import { isMCPCallEvent } from "@/lib/eventStream";
 
 export interface McpActivityMonitorProps {
@@ -17,6 +17,13 @@ interface McpLogItem {
   text: string;
 }
 
+const KIND_STYLES: Record<McpLogItem["kind"], string> = {
+  call: "text-cyan-300",
+  response: "text-emerald-300",
+  wait: "text-amber-300 animate-pulse",
+  error: "text-red-400",
+};
+
 export function McpActivityMonitor({
   events,
   className = "",
@@ -30,38 +37,36 @@ export function McpActivityMonitor({
 
     events.forEach((event, index) => {
       if (isMCPCallEvent(event)) {
-        const mcpEvent = event as MCPCallEvent;
-        if (mcpEvent.status === "QUERYING_MCP") {
-          const args = mcpEvent.resource ? mcpEvent.resource : "";
+        if (event.status === "QUERYING_MCP") {
+          const args = event.resource ? event.resource : "";
           items.push({
             id: `mcp-${index}-call`,
-            timestamp: mcpEvent.timestamp,
+            timestamp: event.timestamp,
             kind: "call",
-            text: `→ ${mcpEvent.server}.${mcpEvent.tool}(${args})`,
+            text: `→ ${event.server}.${event.tool}(${args})`,
           });
-        } else if (mcpEvent.status === "RESPONSE_RECEIVED") {
+        } else if (event.status === "RESPONSE_RECEIVED") {
           items.push({
             id: `mcp-${index}-res`,
-            timestamp: mcpEvent.timestamp,
+            timestamp: event.timestamp,
             kind: "response",
-            text: `← ${mcpEvent.message}`,
+            text: `← ${event.message}`,
           });
-        } else if (mcpEvent.status === "FAILED") {
+        } else if (event.status === "FAILED") {
           items.push({
             id: `mcp-${index}-err`,
-            timestamp: mcpEvent.timestamp,
+            timestamp: event.timestamp,
             kind: "error",
-            text: `✗ ${mcpEvent.message}`,
+            text: `✗ ${event.message}`,
           });
         }
       } else {
-        const agentEvent = event as AgentEvent;
-        if (agentEvent.status === "WAITING_EXTERNAL") {
+        if (event.status === "WAITING_EXTERNAL") {
           items.push({
             id: `mcp-${index}-wait`,
-            timestamp: agentEvent.timestamp,
+            timestamp: event.timestamp,
             kind: "wait",
-            text: `⏳ ${agentEvent.message}`,
+            text: `⏳ ${event.message}`,
           });
         }
       }
@@ -70,12 +75,13 @@ export function McpActivityMonitor({
     return items.slice(-maxEntries);
   }, [events, maxEntries]);
 
-  // Auto-scroll to bottom when new logs arrive
+  // Auto-scroll to bottom when new logs arrive (keyed on latest entry id)
+  const lastLogId = logs.length > 0 ? logs[logs.length - 1].id : "";
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [logs.length]);
+  }, [lastLogId]);
 
   return (
     <div
@@ -116,17 +122,7 @@ export function McpActivityMonitor({
               <div className="text-[10px] text-zinc-600 select-none">
                 {item.timestamp}
               </div>
-              <div
-                className={`text-xs font-semibold ${
-                  item.kind === "call"
-                    ? "text-cyan-300"
-                    : item.kind === "response"
-                    ? "text-emerald-300"
-                    : item.kind === "wait"
-                    ? "text-amber-300 animate-pulse"
-                    : "text-red-400"
-                }`}
-              >
+              <div className={`text-xs font-semibold ${KIND_STYLES[item.kind]}`}>
                 {item.text}
               </div>
             </div>

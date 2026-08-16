@@ -39,6 +39,12 @@ const DEFAULT_INTERPRETATION: AiInterpretation = {
   constraints: ["Hard stop 20:00"],
 };
 
+const STATUS_BADGE_CLASSES: Record<AiInterpretation["status"], string> = {
+  AVAILABLE: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40",
+  UNAVAILABLE: "bg-red-500/20 text-red-300 border border-red-500/40",
+  UNKNOWN: "bg-zinc-800 text-zinc-300",
+};
+
 export function ExternalCommunicationMock({
   agentTitle = "ACTOR AGENT",
   subjectName = "Emma Carter",
@@ -101,11 +107,7 @@ export function ExternalCommunicationMock({
             </div>
             <span
               className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${
-                interpretation.status === "AVAILABLE"
-                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                  : interpretation.status === "UNAVAILABLE"
-                  ? "bg-red-500/20 text-red-300 border border-red-500/40"
-                  : "bg-zinc-800 text-zinc-300"
+                STATUS_BADGE_CLASSES[interpretation.status] || STATUS_BADGE_CLASSES.UNKNOWN
               }`}
             >
               {interpretation.status}
@@ -121,10 +123,10 @@ export function ExternalCommunicationMock({
             )}
             {interpretation.constraints && interpretation.constraints.length > 0 && (
               <div className="text-zinc-200">
-                {interpretation.constraints.map((c, i) => (
-                  <div key={i} className="text-zinc-300">
+                {interpretation.constraints.map((constraint) => (
+                  <div key={constraint} className="text-zinc-300">
                     <span className="text-zinc-400">Constraint: </span>
-                    <span className="text-amber-300">{c}</span>
+                    <span className="text-amber-300">{constraint}</span>
                   </div>
                 ))}
               </div>
