@@ -40,6 +40,43 @@ export interface ActiveIncident {
   resolved: boolean;
 }
 
+export type AnalysisStatus = "QUEUED" | "ANALYZING" | "COMPLETED" | "FAILED";
+export type Decision = "APPROVE" | "REJECT";
+export type ExecutionStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+
+export interface ReplanOption {
+  option_id: string;
+  label?: string;
+  cost_impact?: number;
+  schedule_delay_days?: number;
+  delay_days?: number;
+  risk?: string;
+  base_risk?: string;
+  start_time?: string;
+  end_time?: string;
+  location_id?: string;
+  target_scene_id?: string;
+  tradeoffs?: string[];
+  [key: string]: unknown;
+}
+
+export interface AnalysisData {
+  analysis_id: string;
+  incident_id: string;
+  status: AnalysisStatus;
+  options: ReplanOption[];
+  explainability: string | null;
+  decision: Decision | null;
+  decided_option_id: string | null;
+  execution_status: ExecutionStatus;
+}
+
+export interface ExecutionData {
+  analysis_id: string;
+  status: ExecutionStatus;
+  steps: string[];
+}
+
 /* ─── Fetchers ─── */
 
 export async function fetchProductionHealth(): Promise<ProductionHealth> {
@@ -61,3 +98,34 @@ export async function startAnalysis(incidentId: string): Promise<{ analysis_id: 
   if (!res.ok) throw new Error(`Analysis start failed: ${res.status}`);
   return res.json();
 }
+
+export async function fetchAnalysis(analysisId: string): Promise<AnalysisData> {
+  const res = await fetch(`${API_BASE}/api/analyses/${analysisId}`);
+  if (!res.ok) throw new Error(`Analysis fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function submitDecision(
+  analysisId: string,
+  decision: Decision,
+  optionId?: string
+): Promise<AnalysisData> {
+  const body: { decision: Decision; option_id?: string } = { decision };
+  if (optionId) {
+    body.option_id = optionId;
+  }
+  const res = await fetch(`${API_BASE}/api/analyses/${analysisId}/decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Decision failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchExecution(analysisId: string): Promise<ExecutionData> {
+  const res = await fetch(`${API_BASE}/api/analyses/${analysisId}/execution`);
+  if (!res.ok) throw new Error(`Execution fetch failed: ${res.status}`);
+  return res.json();
+}
+
