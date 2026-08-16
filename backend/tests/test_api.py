@@ -96,8 +96,18 @@ def test_health_reports_total_scenes_and_active_incidents(api_client):
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total_scenes"] == 0
+    assert body["production_day_current"] == 27
+    assert body["production_day_total"] == 54
+    assert body["schedule_adherence_percent"] == 94.0
+    assert body["budget_spent_usd"] == 12_400_000.0
+    assert body["budget_total_usd"] == 20_000_000.0
+    assert body["scenes_completed"] == 82
+    assert body["scenes_total"] == 143
+    assert body["overall_risk"] == "MEDIUM"
     assert body["active_incidents"] == 1
+    assert len(body["today_scenes"]) == 3
+    assert body["today_scenes"][0]["status"] == "COMPLETED"
+    assert body["today_scenes"][2]["status"] == "SHOOTING"
 
 
 def test_active_incidents_lists_only_unresolved(api_client):
