@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ActiveIncident, AnalysisData, ExecutionData } from "@/lib/api";
 import {
   startAnalysis,
@@ -9,10 +9,20 @@ import {
   fetchExecution,
 } from "@/lib/api";
 import { ApprovalPanel, ExecutionChecklist } from "@/components/approval";
+import {
+  AgentLiveView,
+  McpActivityMonitor,
+  ExternalCommunicationMock,
+} from "@/components/live";
+import { connectEventStream, type AnalysisEvent } from "@/lib/eventStream";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 /**
  * ActiveIncidentCard – Weather risk alert with AI analysis,
- * Human Approval (SPEC §9.9), and Execution checklist (SPEC §9.10).
+ * Agent Live View (SPEC §9.2), MCP Activity Monitor (SPEC §9.3),
+ * External Communication Mock (SPEC §9.5), Human Approval (SPEC §9.9),
+ * and Execution checklist (SPEC §9.10).
  */
 export function ActiveIncidentCard({
   incident,
@@ -23,11 +33,27 @@ export function ActiveIncidentCard({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [execution, setExecution] = useState<ExecutionData | null>(null);
+  const [events, setEvents] = useState<AnalysisEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Subscribe to SSE stream whenever an analysis is created
+  useEffect(() => {
+    if (!analysis?.analysis_id) return;
+
+    const streamUrl = `${API_BASE}/api/analyses/${analysis.analysis_id}/events/stream`;
+    const unsubscribe = connectEventStream(streamUrl, (event) => {
+      setEvents((prev) => [...prev, event]);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [analysis?.analysis_id]);
 
   async function handleAnalyze() {
     setAnalyzing(true);
     setError(null);
+    setEvents([]);
     try {
       const { analysis_id } = await startAnalysis(incident.incident_id);
       const analysisData = await fetchAnalysis(analysis_id);
@@ -146,18 +172,38 @@ export function ActiveIncidentCard({
         </div>
       )}
 
+      {/* Live Coordination, Activity Monitor & Communication Views */}
+      {(analysis || analyzing) && (
+        <div className="mt-6 space-y-4">
+          {/* Agent Live View (SPEC §9.2) */}
+          <AgentLiveView events={events} />
+
+          {/* 2-Column Grid: Communication Mock (SPEC §9.5) & MCP Activity Monitor (SPEC §9.3) */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <ExternalCommunicationMock />
+            <McpActivityMonitor events={events} />
+          </div>
+        </div>
+      )}
+
       {/* Step 2: Approval Gate (SPEC §9.9) */}
       {analysis && !analysis.decision && (
-        <ApprovalPanel
-          analysis={analysis}
-          onApprove={handleApprove}
-          onReject={handleReject}
-          isSubmitting={isSubmitting}
-        />
+        <div className="mt-4">
+          <ApprovalPanel
+            analysis={analysis}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            isSubmitting={isSubmitting}
+          />
+        </div>
       )}
 
       {/* Step 3a: Execution Checklist after APPROVE (SPEC §9.10) */}
-      {execution && <ExecutionChecklist execution={execution} />}
+      {execution && (
+        <div className="mt-4">
+          <ExecutionChecklist execution={execution} />
+        </div>
+      )}
 
       {/* Step 3b: Rejected feedback */}
       {isRejected && (

@@ -23,6 +23,11 @@ from sqlalchemy.orm import Session
 from app.db import get_db_session
 from app.events import AnalysisEvent, default_event_bus
 from app.models import Scene
+from app.schemas import (
+    ProductionHealthSchema,
+    TodaySceneProgressSchema,
+    TodaySceneStatus,
+)
 from app.workflow import (
     Analysis,
     AnalysisEngine,
@@ -35,13 +40,6 @@ from app.workflow import (
 )
 
 router = APIRouter()
-
-
-from app.schemas import (
-    ProductionHealthSchema,
-    TodaySceneProgressSchema,
-    TodaySceneStatus,
-)
 
 
 @router.get("/api/production/health", response_model=ProductionHealthSchema)
