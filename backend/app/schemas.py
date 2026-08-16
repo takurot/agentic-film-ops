@@ -118,3 +118,33 @@ def scene_to_schema(scene: Scene) -> SceneSchema:
         crew=[c.id for c in scene.crew],
         scheduled=scene.scheduled,
     )
+
+
+from enum import Enum
+
+
+class TodaySceneStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    SHOOTING = "SHOOTING"
+    SCHEDULED = "SCHEDULED"
+
+
+class TodaySceneProgressSchema(BaseModel):
+    scene_id: str
+    name: str
+    status: TodaySceneStatus
+    progress_percent: int = 0
+
+
+class ProductionHealthSchema(BaseModel):
+    production_day_current: int = 27
+    production_day_total: int = 54
+    schedule_adherence_percent: float = 94.0
+    budget_spent_usd: float = 12_400_000.0
+    budget_total_usd: float = 20_000_000.0
+    scenes_completed: int = 82
+    scenes_total: int = 143
+    overall_risk: str = "MEDIUM"
+    total_scenes: int = 143
+    active_incidents: int = 1
+    today_scenes: list[TodaySceneProgressSchema] = []

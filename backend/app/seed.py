@@ -94,6 +94,40 @@ def seed_scene_42(session: Session) -> Scene:
         overtime_rate_per_hour=150,
     )
 
+    scene_38 = Scene(
+        scene_id="SC-038",
+        name="Alleyway Chase",
+        type="outdoor",
+        duration_hours=4,
+        location=None,
+        scheduled=datetime(2026, 9, 1, 9, 0),
+        actors=[emma],
+        equipment=[],
+        crew=[],
+    )
+    scene_39 = Scene(
+        scene_id="SC-039",
+        name="Subway Escape",
+        type="indoor",
+        duration_hours=3,
+        location=None,
+        scheduled=datetime(2026, 9, 1, 13, 0),
+        actors=[],
+        equipment=[],
+        crew=[],
+    )
+    scene_40 = Scene(
+        scene_id="SC-040",
+        name="Safehouse Planning",
+        type="indoor",
+        duration_hours=4,
+        location=None,
+        scheduled=datetime(2026, 9, 1, 16, 0),
+        actors=[daniel],
+        equipment=[],
+        crew=[kenji],
+    )
+
     scene = Scene(
         scene_id="SC-042",
         name="Rooftop confrontation",
@@ -107,6 +141,9 @@ def seed_scene_42(session: Session) -> Scene:
     )
 
     session.add(scene)
+    session.add(scene_38)
+    session.add(scene_39)
+    session.add(scene_40)
     session.add(studio_b)  # not linked via any Scene relationship, so add() explicitly
     session.commit()
     return scene
