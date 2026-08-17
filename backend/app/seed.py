@@ -6,10 +6,13 @@ camera operation — the scene a sudden rain forecast puts at risk.
 """
 
 from datetime import datetime
+from typing import Any
 
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from app.models import Actor, Crew, Equipment, Location, Manager, Scene
+from app.models import Actor, Base, Crew, Equipment, Location, Manager, Scene
+from app.workflow import Incident
 
 SCENE_42_BLOCK = {"scene_id": "SC-042", "start": "2026-09-02T14:00", "end": "2026-09-02T18:00"}
 
@@ -149,10 +152,69 @@ def seed_scene_42(session: Session) -> Scene:
     return scene
 
 
-if __name__ == "__main__":
-    from app.db import get_session, init_db
+def seed_demo_incident(session: Session) -> Incident:
+    """Seed the baseline weather risk incident for Scene 42 (SPEC §2.1 / §4.8)."""
+    incident = Incident(
+        incident_id="INC-20260902-001",
+        type="WEATHER",
+        scene_id="SC-042",
+        headline="Weather Risk: Rain Forecasted for Scene 42 (Rooftop confrontation)",
+        detail=(
+            "Heavy rain (85% probability, 18mm/h) forecasted during scheduled shoot "
+            "2026-09-02 14:00-18:00 at Rooftop, Shibuya Tower."
+        ),
+        detected_at=datetime(2026, 9, 2, 14, 0, 0),
+        resolved=False,
+    )
+    session.merge(incident)
+    session.commit()
+    return incident
 
-    init_db()
-    with get_session() as db:
-        seed_scene_42(db)
-    print("Seeded Scene 42 (SC-042) into the Production Resource Graph.")
+
+def reset_demo_state(bind: Engine | None = None) -> dict[str, Any]:
+    """Reset the Production Resource Graph, incidents, and event bus back to baseline.
+
+    Drops and recreates all database tables, re-seeds Scene 42 and the baseline
+    demo incident, and resets the event bus history buffer.
+    """
+    from app.db import engine as default_engine
+    from app.events import default_event_bus
+
+    target_engine = bind or default_engine
+
+    # Drop and recreate all tables
+    Base.metadata.drop_all(target_engine)
+    Base.metadata.create_all(target_engine)
+
+    # Seed fresh resource graph & baseline incident
+    with Session(bind=target_engine) as session:
+        scene = seed_scene_42(session)
+        incident = seed_demo_incident(session)
+        scene_id = scene.scene_id
+        incident_id = incident.incident_id
+
+    # Reset event bus
+    default_event_bus.reset()
+
+    return {
+        "status": "ok",
+        "message": "Demo state reset to pre-demo baseline (Scene 42 + Incident INC-20260902-001).",
+        "scene_id": scene_id,
+        "incident_id": incident_id,
+    }
+
+
+if __name__ == "__main__":
+    import sys
+
+    if "--reset" in sys.argv:
+        summary = reset_demo_state()
+        print(f"Reset complete: {summary['message']}")
+    else:
+        from app.db import get_session, init_db
+
+        init_db()
+        with get_session() as db:
+            seed_scene_42(db)
+            seed_demo_incident(db)
+        print("Seeded Scene 42 (SC-042) and baseline incident into the Production Resource Graph.")

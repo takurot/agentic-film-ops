@@ -132,3 +132,11 @@ export async function fetchExecution(analysisId: string): Promise<ExecutionData>
   return res.json();
 }
 
+export async function resetDemoState(): Promise<{ status: string; message: string }> {
+  const res = await fetch(`${API_BASE}/api/demo/reset`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`Reset demo state failed: ${res.status}`);
+  return res.json();
+}
+

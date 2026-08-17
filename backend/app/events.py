@@ -131,6 +131,11 @@ class AnalysisEventBus:
     def subscriber_count(self, channel: str) -> int:
         return len(self._queues.get(channel, []))
 
+    def reset(self) -> None:
+        """Clear all active subscriptions and historical event buffers."""
+        self._queues.clear()
+        self._history.clear()
+
 
 default_event_bus = AnalysisEventBus()
 
