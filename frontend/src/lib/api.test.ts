@@ -6,6 +6,7 @@ import {
   fetchAnalysis,
   submitDecision,
   fetchExecution,
+  resetDemoState,
 } from "./api";
 
 describe("API client", () => {
@@ -157,8 +158,23 @@ describe("API client", () => {
     );
   });
 
-  it("fetchExecution throws on non-ok response", async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 });
-    await expect(fetchExecution("NONE")).rejects.toThrow("Execution fetch failed: 404");
+  it("resetDemoState POSTs to /api/demo/reset", async () => {
+    const mockData = { status: "ok", message: "Reset complete" };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(mockData),
+    });
+
+    const result = await resetDemoState();
+    expect(result).toEqual(mockData);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      "http://localhost:8000/api/demo/reset",
+      { method: "POST" }
+    );
+  });
+
+  it("resetDemoState throws on non-ok response", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+    await expect(resetDemoState()).rejects.toThrow("Reset demo state failed: 500");
   });
 });

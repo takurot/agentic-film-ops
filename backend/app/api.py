@@ -28,6 +28,7 @@ from app.schemas import (
     TodaySceneProgressSchema,
     TodaySceneStatus,
 )
+from app.seed import reset_demo_state
 from app.workflow import (
     Analysis,
     AnalysisEngine,
@@ -85,6 +86,12 @@ def get_production_health(db: Session = Depends(get_db_session)) -> ProductionHe
         active_incidents=len(active_incidents),
         today_scenes=today_scenes,
     )
+
+
+@router.post("/api/demo/reset")
+def reset_demo(db: Session = Depends(get_db_session)) -> dict:
+    """Reset the demo scenario to pre-demo baseline (Issue #34, SPEC §2.2)."""
+    return reset_demo_state(bind=db.get_bind())
 
 
 @router.get("/api/incidents/active")
