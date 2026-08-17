@@ -16,26 +16,42 @@ const mockExecution: ExecutionData = {
 };
 
 describe("ExecutionChecklist", () => {
-  it("renders execution progress and all executed steps", () => {
+  it("renders execution progress, checklist items, and right-side MCP activity panel", () => {
     render(<ExecutionChecklist execution={mockExecution} />);
 
     expect(screen.getByText(/plan execution complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/SPEC §9.10/i)).toBeInTheDocument();
+
+    // Check checklist items
     expect(
-      screen.getByText(/Location LOC-STUDIO-B confirmed/i)
+      screen.getByText(/Actor booking updated/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Actor Emma Carter \(ACT-001\) booking confirmed/i)
+      screen.getByText(/Equipment extended/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Equipment Arri Alexa Mini LF \(EQ-001\) reservation extended/i)
+      screen.getByText(/Studio B reserved/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Scene SC-042 schedule updated to 2026-09-02T16:00 at LOC-STUDIO-B/i)
+      screen.getByText(/Production calendar updated/i)
     ).toBeInTheDocument();
-    expect(screen.getByText(/Incident INC-001 marked resolved/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Call sheet regenerated/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Budget forecast updated/i)
+    ).toBeInTheDocument();
+
+    // Check right-side MCP activity
+    expect(screen.getByText(/MCP Activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/actor\.confirm_actor\(\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/equipment\.reserve\(\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/location\.confirm\(\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/calendar\.update\(\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/budget\.update\(\)/i)).toBeInTheDocument();
   });
 
-  it("renders in-progress state correctly", () => {
+  it("renders in-progress state correctly with animated indicators", () => {
     const inProgressExecution: ExecutionData = {
       analysis_id: "AN-test-123",
       status: "IN_PROGRESS",
@@ -45,6 +61,6 @@ describe("ExecutionChecklist", () => {
     render(<ExecutionChecklist execution={inProgressExecution} />);
 
     expect(screen.getByText(/executing plan…/i)).toBeInTheDocument();
-    expect(screen.getByText(/Location LOC-STUDIO-B confirmed/i)).toBeInTheDocument();
+    expect(screen.getByText(/MCP Activity/i)).toBeInTheDocument();
   });
 });
