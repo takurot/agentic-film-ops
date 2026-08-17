@@ -75,8 +75,8 @@ describe("ApprovalPanel", () => {
       />
     );
 
-    const optionBRadio = screen.getByLabelText(/Move Scene 42 to Thu 09:00–13:00/i);
-    fireEvent.click(optionBRadio);
+    const optionBCard = screen.getByText(/Move Scene 42 to Thu 09:00–13:00/i);
+    fireEvent.click(optionBCard);
 
     const approveButton = screen.getByRole("button", { name: /approve & execute/i });
     fireEvent.click(approveButton);
@@ -110,7 +110,8 @@ describe("ApprovalPanel", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: /executing…|approve/i })).toBeDisabled();
+    const executingBtns = screen.getAllByRole("button", { name: /executing…/i });
+    executingBtns.forEach((btn) => expect(btn).toBeDisabled());
     expect(screen.getByRole("button", { name: /reject/i })).toBeDisabled();
   });
 
