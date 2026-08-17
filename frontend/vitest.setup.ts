@@ -20,3 +20,13 @@ if (typeof global.EventSource === "undefined") {
   // @ts-expect-error Mocking global EventSource for tests
   global.EventSource = MockEventSource;
 }
+
+// Mock ResizeObserver for React Flow in JSDOM
+if (typeof global.ResizeObserver === "undefined") {
+  class MockResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  global.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
+}
