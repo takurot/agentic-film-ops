@@ -52,6 +52,9 @@ export interface ReplanOption {
   delay_days?: number;
   risk?: string;
   base_risk?: string;
+  recommended?: boolean;
+  checklist?: string[];
+  why?: string;
   start_time?: string;
   end_time?: string;
   location_id?: string;
