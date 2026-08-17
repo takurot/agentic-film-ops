@@ -9,6 +9,7 @@ import {
   fetchExecution,
 } from "@/lib/api";
 import { ApprovalPanel, ExecutionChecklist } from "@/components/approval";
+import { BeforeAfterSummary } from "@/components/summary";
 import {
   AgentLiveView,
   McpActivityMonitor,
@@ -207,6 +208,16 @@ export function ActiveIncidentCard({
         <div className="mt-4">
           <ExecutionChecklist execution={execution} />
         </div>
+      )}
+
+      {/* Step 4: Before / After Summary screen (SPEC §9.11) */}
+      {isResolved && (
+        <BeforeAfterSummary
+          incident={incident}
+          analysis={analysis}
+          execution={execution}
+          events={events}
+        />
       )}
 
       {/* Step 3b: Rejected feedback */}
