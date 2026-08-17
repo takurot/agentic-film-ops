@@ -14,6 +14,7 @@ import {
   McpActivityMonitor,
   ExternalCommunicationMock,
 } from "@/components/live";
+import { ResourceNetworkView } from "@/components/network";
 import { connectEventStream, type AnalysisEvent } from "@/lib/eventStream";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -175,6 +176,9 @@ export function ActiveIncidentCard({
       {/* Live Coordination, Activity Monitor & Communication Views */}
       {(analysis || analyzing) && (
         <div className="mt-6 space-y-4">
+          {/* Resource Network View (SPEC §9.4 Flagship Screen) */}
+          <ResourceNetworkView events={events} />
+
           {/* Agent Live View (SPEC §9.2) */}
           <AgentLiveView events={events} />
 
