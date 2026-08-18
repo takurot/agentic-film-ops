@@ -61,6 +61,9 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Generate Next.js types (LayoutProps / PageProps)
+        run: npx next typegen
+
       - name: Run TypeScript Type Check
         run: npx tsc --noEmit
 

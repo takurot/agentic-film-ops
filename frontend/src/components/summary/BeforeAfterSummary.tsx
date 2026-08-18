@@ -151,6 +151,31 @@ export function BeforeAfterSummary({
         </span>
       </div>
 
+      {/* Closed-Loop Flow Indicator (SPEC §15.6) */}
+      <div className="mt-5 rounded-lg border border-emerald-500/20 bg-emerald-950/10 px-4 py-3">
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-emerald-500">
+          §15.6 — Closed-Loop Autonomous Resolution
+        </div>
+        <div className="flex flex-wrap items-center gap-1 text-[10px] font-mono">
+          {[
+            { label: "Observe", color: "text-blue-300" },
+            { label: "Reason", color: "text-cyan-300" },
+            { label: "Coordinate", color: "text-amber-300" },
+            { label: "Re-plan", color: "text-violet-300" },
+            { label: "Approve", color: "text-emerald-300" },
+            { label: "Execute", color: "text-emerald-400", last: true },
+          ].map(({ label, color, last }) => (
+            <span key={label} className="flex items-center gap-1">
+              <span className={`font-bold ${color}`}>{label}</span>
+              {!last && <span className="text-zinc-600">→</span>}
+            </span>
+          ))}
+          <span className="ml-1 rounded bg-emerald-500/20 px-1.5 py-0.5 text-emerald-400 font-bold">
+            ✓ Incident Closed
+          </span>
+        </div>
+      </div>
+
       {/* Main Grid per SPEC §9.11 */}
       <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         {/* Metric 1: Detection -> Resolution */}
