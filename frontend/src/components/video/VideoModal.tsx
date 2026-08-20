@@ -76,6 +76,19 @@ export function VideoModal({
             playsInline
             className="h-full w-full object-contain"
           >
+            <track
+              label="English"
+              kind="subtitles"
+              srcLang="en"
+              src="/subtitles_en.vtt"
+              default
+            />
+            <track
+              label="Japanese"
+              kind="subtitles"
+              srcLang="ja"
+              src="/subtitles_ja.vtt"
+            />
             Your browser does not support HTML5 video playback.
           </video>
         </div>
