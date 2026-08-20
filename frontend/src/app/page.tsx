@@ -14,12 +14,13 @@ import {
   type ProductionHealth as HealthData,
   type ActiveIncident,
 } from "@/lib/api";
+import { MOCK_HEALTH, MOCK_INCIDENTS } from "@/lib/mockData";
 import { DemoTimeline } from "@/components/demo";
 
 export default function Home() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [incidents, setIncidents] = useState<ActiveIncident[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [showTimeline, setShowTimeline] = useState(true);
   const [resetting, setResetting] = useState(false);
 
@@ -35,9 +36,18 @@ export default function Home() {
         if (!cancelled) {
           setHealth(h);
           setIncidents(inc);
+          setIsDemoMode(false);
         }
       } catch (err) {
-        if (!cancelled) setError(String(err));
+        console.warn(
+          "Backend connection failed; initializing interactive demo simulation mode:",
+          err
+        );
+        if (!cancelled) {
+          setHealth(MOCK_HEALTH);
+          setIncidents(MOCK_INCIDENTS);
+          setIsDemoMode(true);
+        }
       }
     }
 
@@ -53,21 +63,14 @@ export default function Home() {
     setResetting(true);
     setResetError(null);
     try {
-      await resetDemoState();
-      // Reload page to restart the demo scenario cleanly
+      if (!isDemoMode) {
+        await resetDemoState();
+      }
       window.location.reload();
     } catch (err) {
       setResetting(false);
       setResetError(String(err));
     }
-  }
-
-  if (error) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8 text-red-400">
-        <p>Failed to load dashboard: {error}</p>
-      </div>
-    );
   }
 
   if (!health) {
@@ -91,6 +94,26 @@ export default function Home() {
       />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
+        {/* Demo Mode / Cloud Hosting Banner */}
+        {isDemoMode && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-4 py-2.5 text-xs text-emerald-300">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>
+                <strong>Interactive Demo Simulation:</strong> Real-time domain agents & constraint solver demo.
+              </span>
+            </div>
+            <a
+              href="/promo-video.mp4"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 font-mono text-[11px] font-bold text-emerald-300 transition-colors hover:bg-emerald-500/30"
+            >
+              <span>🎬 Watch Promo Video (90s)</span>
+            </a>
+          </div>
+        )}
+
         <ProductionHealth
           schedulePercent={health.schedule_adherence_percent}
           budgetSpent={health.budget_spent_usd}
@@ -133,4 +156,3 @@ export default function Home() {
     </div>
   );
 }
-
