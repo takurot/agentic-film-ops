@@ -16,12 +16,14 @@ import {
 } from "@/lib/api";
 import { MOCK_HEALTH, MOCK_INCIDENTS } from "@/lib/mockData";
 import { DemoTimeline } from "@/components/demo";
+import { VideoModal } from "@/components/video";
 
 export default function Home() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [incidents, setIncidents] = useState<ActiveIncident[]>([]);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showTimeline, setShowTimeline] = useState(true);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
@@ -96,21 +98,20 @@ export default function Home() {
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
         {/* Demo Mode / Cloud Hosting Banner */}
         {isDemoMode && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-4 py-2.5 text-xs text-emerald-300">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-4 py-2.5 text-xs text-emerald-300 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               <span>
                 <strong>Interactive Demo Simulation:</strong> Real-time domain agents & constraint solver demo.
               </span>
             </div>
-            <a
-              href="/promo-video.mp4"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 font-mono text-[11px] font-bold text-emerald-300 transition-colors hover:bg-emerald-500/30"
+            <button
+              type="button"
+              onClick={() => setIsVideoModalOpen(true)}
+              className="cursor-pointer flex items-center gap-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 px-3 py-1 font-mono text-[11px] font-bold text-emerald-300 transition-all hover:bg-emerald-500/30 hover:scale-[1.02]"
             >
               <span>🎬 Watch Promo Video (90s)</span>
-            </a>
+            </button>
           </div>
         )}
 
@@ -138,6 +139,12 @@ export default function Home() {
       <DemoTimeline
         visible={showTimeline}
         onClose={() => setShowTimeline(false)}
+      />
+
+      {/* In-App Promo Video Modal (Issue #73) */}
+      <VideoModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
       />
 
       {/* Reset error toast */}

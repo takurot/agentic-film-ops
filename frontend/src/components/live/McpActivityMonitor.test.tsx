@@ -64,4 +64,19 @@ describe("McpActivityMonitor Component", () => {
     expect(screen.getByText("14:03:08")).toBeInTheDocument();
     expect(screen.getByText("14:03:09")).toBeInTheDocument();
   });
+
+  it("handles partial event data gracefully without rendering undefined", () => {
+    const partialEvents: any[] = [
+      {
+        timestamp: "14:05:00",
+        type: "MCP_CALL",
+        status: "QUERYING_MCP",
+        resource: "RES-123",
+      },
+    ];
+
+    render(<McpActivityMonitor events={partialEvents} />);
+    expect(screen.getByText(/→ mcp\.call\(RES-123\)/i)).toBeInTheDocument();
+    expect(screen.queryByText(/undefined\.undefined/i)).not.toBeInTheDocument();
+  });
 });

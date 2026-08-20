@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
  *
  * Shows the 4-minute beat markers and auto-advances based on elapsed wall time.
  * Each beat maps to a SPEC §15 success criterion so judges can follow without narration.
+ * Supports minimize/dock mode to prevent viewport overlap on smaller displays.
  */
 
 interface Beat {
@@ -60,6 +61,7 @@ export function DemoTimeline({
   const [startTime] = useState(() => Date.now());
   // wallElapsed is only used when elapsedSeconds prop is not provided
   const [wallElapsed, setWallElapsed] = useState(0);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   // Wall-clock tracking — only runs when NOT controlled by elapsedSeconds prop
   useEffect(() => {
@@ -92,11 +94,52 @@ export function DemoTimeline({
 
   if (!visible) return null;
 
+  // Render minimized dock pill
+  if (isMinimized) {
+    return (
+      <div
+        id="demo-overlay"
+        aria-label="Demo Timeline (Minimized)"
+        className="fixed bottom-4 right-4 z-40 flex items-center gap-2.5 rounded-full border border-zinc-700 bg-zinc-950/95 px-4 py-2 shadow-2xl backdrop-blur-md transition-all hover:border-zinc-500 animate-fadeIn"
+      >
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+        </span>
+        <span className="font-mono text-xs font-bold text-zinc-200">
+          {formatTime(displayElapsed)} / {formatTime(totalSeconds)}
+        </span>
+        <span className="rounded bg-zinc-800 px-2 py-0.5 font-mono text-[10px] text-zinc-300">
+          {activeBeat.label}
+        </span>
+        <button
+          type="button"
+          aria-label="Expand demo timeline"
+          onClick={() => setIsMinimized(false)}
+          className="rounded p-1 text-xs text-zinc-400 hover:text-zinc-100 transition-colors"
+          title="Expand timeline"
+        >
+          ▲
+        </button>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close demo timeline"
+            className="rounded p-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       id="demo-overlay"
       aria-label="Demo Timeline"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[min(92vw,900px)] rounded-xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl backdrop-blur-md animate-slideInUp"
+      className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 w-[min(92vw,900px)] rounded-xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl backdrop-blur-md animate-slideInUp"
       role="region"
     >
       {/* Header row */}
@@ -110,21 +153,31 @@ export function DemoTimeline({
             LIVE DEMO — AGENTIC FILMOPS
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           {/* Current SPEC §15 criterion */}
           {activeBeat.criterion > 0 && (
-            <span className="rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300 font-mono">
+            <span className="hidden sm:inline rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300 font-mono">
               §15.{activeBeat.criterion} {CRITERIA_LABELS[activeBeat.criterion]}
             </span>
           )}
           <span className="font-mono text-xs text-zinc-400">
             {formatTime(displayElapsed)} / {formatTime(totalSeconds)}
           </span>
+          <button
+            type="button"
+            onClick={() => setIsMinimized(true)}
+            aria-label="Minimize demo timeline"
+            className="rounded p-1 text-xs text-zinc-400 hover:text-zinc-100 transition-colors"
+            title="Minimize to floating pill"
+          >
+            ▼
+          </button>
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
               aria-label="Close demo timeline"
-              className="rounded p-0.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="rounded p-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
             >
               ✕
             </button>

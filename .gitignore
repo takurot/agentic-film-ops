@@ -3,3 +3,4 @@ temp/
 .serena/
 .firebase/
 frontend/out/
+node_modules/

@@ -451,12 +451,17 @@ export function ResourceNetworkView({ events = [] }: ResourceNetworkViewProps) {
       </div>
 
       {/* React Flow Container */}
-      <div className="h-[460px] w-full rounded border border-zinc-900 bg-zinc-950/90">
+      <div
+        role="region"
+        aria-label="Resource Dependency Graph Canvas"
+        className="h-[460px] w-full rounded border border-zinc-900 bg-zinc-950/90"
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
+          preventScrolling={false}
           attributionPosition="bottom-right"
           proOptions={{ hideAttribution: true }}
           minZoom={0.5}

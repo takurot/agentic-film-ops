@@ -38,12 +38,14 @@ export function McpActivityMonitor({
     events.forEach((event, index) => {
       if (isMCPCallEvent(event)) {
         if (event.status === "QUERYING_MCP") {
+          const server = event.server || "mcp";
+          const tool = event.tool || "call";
           const args = event.resource ? event.resource : "";
           items.push({
             id: `mcp-${index}-call`,
             timestamp: event.timestamp,
             kind: "call",
-            text: `→ ${event.server}.${event.tool}(${args})`,
+            text: `→ ${server}.${tool}(${args})`,
           });
         } else if (event.status === "RESPONSE_RECEIVED") {
           items.push({
@@ -105,21 +107,23 @@ export function McpActivityMonitor({
       <div
         ref={scrollRef}
         tabIndex={0}
+        role="log"
+        aria-live="polite"
         aria-label="MCP Log Stream"
         className="flex-1 overflow-y-auto p-4 space-y-3 max-h-96 min-h-[160px] select-text focus:outline-none"
       >
         {logs.length === 0 ? (
-          <div className="flex h-full min-h-[120px] flex-col items-center justify-center text-center text-zinc-600">
+          <div className="flex h-full min-h-[120px] flex-col items-center justify-center text-center text-zinc-500">
             <span className="text-sm">⏳</span>
             <p className="mt-1 text-[11px]">Awaiting MCP tool calls…</p>
-            <p className="text-[10px] text-zinc-700">
+            <p className="text-[10px] text-zinc-600">
               Tool invocations across servers will appear in real time
             </p>
           </div>
         ) : (
           logs.map((item) => (
             <div key={item.id} className="leading-tight animate-fadeIn">
-              <div className="text-[10px] text-zinc-600 select-none">
+              <div className="text-[10px] text-zinc-400 select-none">
                 {item.timestamp}
               </div>
               <div className={`text-xs font-semibold ${KIND_STYLES[item.kind]}`}>

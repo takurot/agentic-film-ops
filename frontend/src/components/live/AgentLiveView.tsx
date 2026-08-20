@@ -118,17 +118,19 @@ export function AgentLiveView({ events, className = "" }: AgentLiveViewProps) {
   return (
     <div
       aria-label="Agent Live View"
-      className={`rounded-lg border border-zinc-800 bg-zinc-950/80 p-5 font-mono text-zinc-300 shadow-xl ${className}`}
+      role="region"
+      aria-live="polite"
+      className={`rounded-lg border border-zinc-800 bg-zinc-950 p-5 shadow-2xl ${className}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+      <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
         <div className="flex items-center gap-2">
-          <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-100">
             AI COORDINATION — AGENT LIVE VIEW
           </h2>
         </div>
-        <span className="text-[10px] text-zinc-500 uppercase tracking-widest">
+        <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono">
           SPEC §9.2 • Real-time Multi-Agent Network
         </span>
       </div>
