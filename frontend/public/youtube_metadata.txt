@@ -1,0 +1,71 @@
+================================================================================
+AGENTIC FILMOPS — YOUTUBE METADATA (TITLE & DESCRIPTION)
+================================================================================
+
+[TITLE OPTIONS]
+
+Option 1 (Recommended - High CTR & Action-Oriented):
+Agentic FilmOps: Autonomous Film Production Disruption Recovery in 4 Minutes (Gemini + MCP)
+
+Option 2 (Hackathon & Tech Showcase):
+How Gemini & Multi-Agent MCP Orchestrate Live Movie Production | Agentic FilmOps Demo
+
+Option 3 (Narrative Hook):
+When Rain Threatens a $20M Movie Set, AI Resolves the Crisis in 4 Minutes | Agentic FilmOps
+
+
+================================================================================
+[DESCRIPTION]
+================================================================================
+
+🎬 Agentic FilmOps — Autonomous Film Production Operations & Disruption Recovery
+Powered by Gemini 2.5, Google Agent Development Kit (ADK), and Model Context Protocol (MCP).
+
+🌐 Live Interactive Web App: https://takurot0708.web.app
+💻 GitHub Repository: https://github.com/takurot/agentic-film-ops
+🎥 High-Res Video Download: https://takurot0708.web.app/promo-video.mp4
+
+---
+
+### 📖 The Problem & The Solution
+A sudden storm forecast threatens Scene 42—a crucial outdoor rooftop confrontation on Shibuya Tower with principal talent Emma Carter and Daniel. In traditional Hollywood productions, rescheduling requires hours of chaotic phone calls, union overtime disputes, and tens of thousands in idle crew penalties ($79,800+).
+
+Agentic FilmOps changes everything. In under 4 minutes, a coordinated network of 6 specialized domain agents and standardized MCP tool buses:
+1. Detects Doppler radar rain probabilities (92%).
+2. Traverses the Production Resource Network to identify cast, location, and equipment dependencies.
+3. Automatically negotiates with talent agencies via LLM-powered structured comms.
+4. Generates 3 Pareto-optimal replan options evaluated by a deterministic Constraint Solver.
+5. Executes automated multi-system re-bookings with one click upon Producer approval.
+
+---
+
+### ⏱️ Video Chapters
+0:00 - Introduction & Concept Hook
+0:05 - Production Dashboard & Weather Risk Alert (Scene 42)
+0:15 - Multi-Agent Live Coordination (6 Domain Agents)
+0:30 - Flagship Production Resource Network & Live MCP Bus
+0:45 - AI-to-Human External Agency Communication & LLM Structuring
+0:55 - Pareto Replanning (Options A/B/C) & Explainability Engine
+1:10 - Producer Approval Gate & Autonomous Execution Pipeline
+1:20 - Closed-Loop Before/After Impact Summary & Outro
+
+---
+
+### 🛠️ Architecture & Tech Stack
+- AI Core & Orchestration: Gemini 2.5 Flash / Pro with Google ADK
+- Tool Protocol: Model Context Protocol (MCP) connecting Weather, Script, Actor, Location, Equipment, and Budget servers
+- Constraint Solver: Deterministic Pareto Multi-Objective Optimization
+- Frontend Dashboard: Next.js 16 (App Router), React 19, Tailwind CSS v4, React Flow
+- Video Generation: Programmatic video compositing with Remotion v4, React, Vitest & Auto-Ducking Audio
+
+---
+
+### 🏆 Key Achievements & Impact
+✅ 100% On-Schedule Wrap Date Preservation (0 Days Delay)
+✅ $79,800 in Avoided Standby Penalties (+$4,200 net variance vs $84,000 baseline loss)
+✅ Zero Human Re-entry for unstructured talent manager negotiations
+✅ Closed-Loop Autonomous Execution across 52 MCP tool invocations
+
+---
+
+#GeminiAI #AgenticAI #MCP #ModelContextProtocol #FilmProduction #GoogleADK #Nextjs #ReactFlow #Remotion #AIAgents #Hackathon #MachineLearning
