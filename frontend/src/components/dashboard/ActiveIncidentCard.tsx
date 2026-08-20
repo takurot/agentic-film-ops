@@ -17,6 +17,7 @@ import {
 } from "@/components/live";
 import { ResourceNetworkView } from "@/components/network";
 import { connectEventStream, type AnalysisEvent } from "@/lib/eventStream";
+import { PhaseStepIndicator, type ResolutionPhase } from "./PhaseStepIndicator";
 import {
   MOCK_ANALYSIS,
   MOCK_EXECUTION,
@@ -124,10 +125,19 @@ export function ActiveIncidentCard({
   const isResolved = incident.resolved || execution?.status === "COMPLETED";
   const isRejected = analysis?.decision === "REJECT";
 
+  const currentPhase: ResolutionPhase = isResolved
+    ? "RESOLVED"
+    : analysis && !analysis.decision
+    ? "OPTIONS"
+    : analyzing || analysis
+    ? "ANALYZING"
+    : "ALERT";
+
   return (
     <section
+      id="incident-section"
       aria-label="Active Incident"
-      className={`relative overflow-hidden rounded-lg border p-5 transition-colors ${
+      className={`relative overflow-hidden rounded-xl border p-5 transition-colors ${
         isResolved
           ? "border-emerald-500/30 bg-emerald-950/10"
           : isRejected
@@ -135,8 +145,11 @@ export function ActiveIncidentCard({
           : "border-red-500/30 bg-red-950/20"
       }`}
     >
+      {/* 4-Phase Progress Step Indicator (Issue #74) */}
+      <PhaseStepIndicator currentPhase={currentPhase} />
+
       {/* Pulse indicator / Status badge */}
-      <div className="absolute top-5 right-5 flex items-center gap-2">
+      <div className="absolute top-5 right-5 hidden sm:flex items-center gap-2">
         {isResolved ? (
           <span className="text-[11px] font-bold tracking-wider text-emerald-400 uppercase">
             ✓ Incident Resolved
@@ -159,7 +172,7 @@ export function ActiveIncidentCard({
       </div>
 
       {/* Incident Details */}
-      <div className="mt-1">
+      <div className="mt-3">
         <h2
           className={`text-base font-bold uppercase ${
             isResolved
@@ -172,7 +185,7 @@ export function ActiveIncidentCard({
           {incident.type === "WEATHER" ? "⛈ Weather Risk" : incident.type}
         </h2>
         <p className="mt-2 text-sm text-zinc-300">{incident.detail}</p>
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-zinc-400">
           Scene {incident.scene_id} • Detected{" "}
           {new Date(incident.detected_at).toLocaleString()}
         </p>
@@ -191,7 +204,7 @@ export function ActiveIncidentCard({
             id="start-analysis-btn"
             onClick={handleAnalyze}
             disabled={analyzing}
-            className="cursor-pointer rounded bg-red-600 px-5 py-2.5 text-xs font-bold tracking-wider text-white uppercase shadow-lg transition-all hover:bg-red-500 hover:shadow-red-500/25 disabled:cursor-wait disabled:opacity-60"
+            className="cursor-pointer rounded-lg bg-red-600 px-5 py-2.5 text-xs font-bold tracking-wider text-white uppercase shadow-lg transition-all hover:bg-red-500 hover:shadow-red-500/25 disabled:cursor-wait disabled:opacity-60"
           >
             {analyzing ? "Analyzing…" : "Start AI Impact Analysis"}
           </button>
@@ -200,7 +213,7 @@ export function ActiveIncidentCard({
 
       {/* Live Coordination, Activity Monitor & Communication Views */}
       {(analysis || analyzing) && (
-        <div className="mt-6 space-y-4">
+        <div id="agent-orchestration-section" className="mt-6 space-y-4">
           {/* Resource Network View (SPEC §9.4 Flagship Screen) */}
           <ResourceNetworkView events={events} />
 
@@ -217,7 +230,7 @@ export function ActiveIncidentCard({
 
       {/* Step 2: Approval Gate (SPEC §9.9) */}
       {analysis && !analysis.decision && (
-        <div className="mt-4">
+        <div id="option-comparison-section" className="mt-6">
           <ApprovalPanel
             analysis={analysis}
             onApprove={handleApprove}
@@ -227,22 +240,25 @@ export function ActiveIncidentCard({
         </div>
       )}
 
-      {/* Step 3a: Execution Checklist after APPROVE (SPEC §9.10) */}
-      {execution && (
-        <div className="mt-4">
-          <ExecutionChecklist execution={execution} />
-        </div>
-      )}
+      {/* Step 3 & 4: Execution Checklist & Summary (SPEC §9.10 / §9.11) */}
+      <div id="execution-summary-section" className="space-y-4">
+        {execution && (
+          <div className="mt-6">
+            <ExecutionChecklist execution={execution} />
+          </div>
+        )}
 
-      {/* Step 4: Before / After Summary screen (SPEC §9.11) */}
-      {isResolved && (
-        <BeforeAfterSummary
-          incident={incident}
-          analysis={analysis}
-          execution={execution}
-          events={events}
-        />
-      )}
+        {isResolved && (
+          <div className="mt-6">
+            <BeforeAfterSummary
+              incident={incident}
+              analysis={analysis}
+              execution={execution}
+              events={events}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Step 3b: Rejected feedback */}
       {isRejected && (

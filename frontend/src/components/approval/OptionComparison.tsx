@@ -119,31 +119,78 @@ export function OptionComparison({
                   {opt.label || `Option ${opt.option_id}`}
                 </h3>
 
-                {/* Metrics Table */}
-                <div className="mt-4 space-y-1.5 rounded bg-zinc-900/80 p-2.5 text-xs border border-zinc-800/60">
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Cost impact</span>
+                {/* Metrics Table with Visual Tradeoff Bars */}
+                <div className="mt-4 space-y-2 rounded-lg bg-zinc-900/90 p-3 text-xs border border-zinc-800/80">
+                  {/* Cost Metric & Bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-400">Cost impact</span>
+                      <span
+                        className={`font-mono font-bold ${
+                          cost > 20000
+                            ? "text-red-400"
+                            : cost > 10000
+                            ? "text-amber-400"
+                            : "text-emerald-400"
+                        }`}
+                      >
+                        {formatCost(cost)}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          cost > 20000
+                            ? "bg-red-500"
+                            : cost > 10000
+                            ? "bg-amber-400"
+                            : "bg-emerald-400"
+                        }`}
+                        style={{
+                          width: `${Math.min(Math.max((cost / 42000) * 100, 10), 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Delay Metric & Bar */}
+                  <div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-zinc-400">Schedule delay</span>
+                      <span
+                        className={`font-mono font-bold ${
+                          delay > 0 ? "text-amber-400" : "text-emerald-400"
+                        }`}
+                      >
+                        {formatDelay(delay)}
+                      </span>
+                    </div>
+                    <div className="mt-1 h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          delay > 0 ? "bg-amber-400" : "bg-emerald-400"
+                        }`}
+                        style={{
+                          width: delay > 0 ? "100%" : "8%",
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Risk Metric */}
+                  <div className="flex items-center justify-between pt-0.5 text-[11px]">
+                    <span className="text-zinc-400">Risk rating</span>
                     <span
-                      className={`font-bold ${
-                        cost > 15000 ? "text-red-400" : "text-emerald-400"
+                      className={`font-mono font-bold uppercase ${
+                        risk === "LOW"
+                          ? "text-emerald-400"
+                          : risk === "MEDIUM"
+                          ? "text-amber-400"
+                          : "text-red-400"
                       }`}
                     >
-                      {formatCost(cost)}
+                      {risk}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Schedule delay</span>
-                    <span
-                      className={`font-bold ${
-                        delay > 0 ? "text-amber-400" : "text-zinc-200"
-                      }`}
-                    >
-                      {formatDelay(delay)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-zinc-400">Risk</span>
-                    <span className="font-semibold text-zinc-300">{risk}</span>
                   </div>
                 </div>
 
