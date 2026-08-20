@@ -1,3 +1,5 @@
 temp/
 .claude/
 .serena/
+.firebase/
+frontend/out/
