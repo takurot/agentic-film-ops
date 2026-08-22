@@ -11,7 +11,7 @@ describe("public runtime config", () => {
   it.each([undefined, "", "relative", "ftp://api.example.test", "https://user:pass@api.example.test", "https://api.example.test?q=x", "https://api.example.test/#x"])("rejects invalid Live URL %s", (apiUrl) => {
     expect(() => resolvePublicRuntimeConfig({ mode: "LIVE_GEMINI", apiUrl })).toThrow();
   });
-  it.each(["http://localhost:8000", "http://127.0.0.1:8000", "http://api.example.test", "https://127.0.0.2:8000", "https://[::]:8000", "https://[::1]:8000", "https://[::ffff:127.0.0.1]:8000"])("rejects insecure production Live URL %s", (apiUrl) => {
+  it.each(["http://localhost:8000", "http://127.0.0.1:8000", "http://api.example.test", "https://127.0.0.2:8000", "https://[::]:8000", "https://[::1]:8000", "https://[::ffff:127.0.0.1]:8000", "https://localhost./", "https://foo.localhost./"])("rejects insecure production Live URL %s", (apiUrl) => {
     expect(() => resolvePublicRuntimeConfig({ mode: "LIVE_GEMINI", apiUrl, production: true })).toThrow();
   });
   it("normalizes a valid production Live URL", () => {

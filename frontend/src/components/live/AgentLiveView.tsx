@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { AnalysisEvent, AgentEvent, AgentEventStatus } from "@/lib/eventStream";
-import { isMCPCallEvent } from "@/lib/eventStream";
+import { isMCPCallEvent, ORCHESTRATOR_AGENT_NAMES } from "@/lib/eventStream";
 
 export interface AgentLiveViewProps {
   events: AnalysisEvent[];
@@ -80,8 +80,7 @@ export function AgentLiveView({ events, className = "", replay = false }: AgentL
       const agentEvent = event as AgentEvent;
 
       if (
-        agentEvent.agent === "ProductionOrchestrator" ||
-        agentEvent.agent === "Orchestrator" ||
+        ORCHESTRATOR_AGENT_NAMES.has(agentEvent.agent) ||
         agentEvent.type.startsWith("ANALYSIS_")
       ) {
         orchStatus = agentEvent.status;

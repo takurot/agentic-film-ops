@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_BASE_URL, LOCAL_E2E_BASE_URL, USE_LOCAL_E2E_SERVER } from "./e2e/runtime";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -6,15 +7,15 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: E2E_BASE_URL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
+  webServer: USE_LOCAL_E2E_SERVER ? {
     command: "npm run serve:export",
-    url: "http://127.0.0.1:4173",
+    url: LOCAL_E2E_BASE_URL,
     reuseExistingServer: false,
     timeout: 30_000,
-  },
+  } : undefined,
 });

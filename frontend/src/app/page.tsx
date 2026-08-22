@@ -11,10 +11,11 @@ import { VideoModal } from "@/components/video";
 type DashboardState =
   | { kind: "REPLAY_READY"; health: HealthData; incidents: ActiveIncident[] }
   | { kind: "LOADING_LIVE" }
-  | { kind: "LIVE_READY"; health: HealthData; incidents: ActiveIncident[] }
+  | { kind: "LIVE_READY"; health: HealthData; incidents: ActiveIncident[]; client: LiveApiClient }
   | { kind: "LIVE_ERROR"; code: "BACKEND_UNAVAILABLE" | "RUNTIME_MISMATCH" };
 
 const runtimeConfig = getPublicRuntimeConfig();
+const LIVE_VERIFICATION_TIMEOUT_MS = 8_000;
 
 export default function Home() {
   const client = useMemo<LiveApiClient | null>(() =>
@@ -25,6 +26,7 @@ export default function Home() {
   const [showTimeline, setShowTimeline] = useState(true);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<"RESET_FAILED" | null>(null);
   const requestGeneration = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const mounted = useRef(true);
@@ -35,7 +37,7 @@ export default function Home() {
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
-    const timeout = setTimeout(() => controller.abort(), 8_000);
+    const timeout = setTimeout(() => controller.abort(), LIVE_VERIFICATION_TIMEOUT_MS);
     try {
       const runtime = await client.fetchRuntimeInfo(controller.signal);
       if (!isVerifiedLiveRuntime(runtime)) {
@@ -47,7 +49,7 @@ export default function Home() {
         client.fetchActiveIncidents(controller.signal),
       ]);
       if (generation !== requestGeneration.current) return;
-      setState({ kind: "LIVE_READY", health, incidents });
+      setState({ kind: "LIVE_READY", health, incidents, client });
     } catch {
       controller.abort();
       if (generation === requestGeneration.current) {
@@ -79,20 +81,29 @@ export default function Home() {
 
   async function handleReset() {
     setResetting(true);
+    setResetError(null);
     if (runtimeConfig.mode === "RECORDED_REPLAY") {
       window.location.reload();
       return;
     }
+    if (!client) {
+      setResetError("RESET_FAILED");
+      setResetting(false);
+      return;
+    }
+    const generation = ++requestGeneration.current;
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     try {
-      const controller = new AbortController();
-      activeRequest.current = controller;
-      await client?.resetDemoState(controller.signal);
-      if (!mounted.current) return;
+      await client.resetDemoState(controller.signal);
+      if (!mounted.current || generation !== requestGeneration.current) return;
       await loadLive();
     } catch {
-      if (mounted.current) setState({ kind: "LIVE_ERROR", code: "BACKEND_UNAVAILABLE" });
+      if (mounted.current && generation === requestGeneration.current) setResetError("RESET_FAILED");
     } finally {
       if (mounted.current) setResetting(false);
+      if (activeRequest.current === controller) activeRequest.current = null;
     }
   }
 
@@ -122,11 +133,14 @@ export default function Home() {
         <strong>RECORDED REPLAY / SAMPLE DATA — NO LIVE API CALLS</strong>
         <button type="button" onClick={() => setIsVideoModalOpen(true)} className="rounded-lg border border-amber-500/40 px-3 py-1 font-bold">🎬 Watch Promo Video (90s)</button>
       </div>}
+      {resetError && <div role="alert" className="rounded-lg border border-red-500/40 bg-red-950/20 px-4 py-3 text-xs font-bold text-red-200">
+        {resetError} — The current dashboard remains unchanged. Retry when the Live backend is available.
+      </div>}
       <ProductionHealth schedulePercent={health.schedule_adherence_percent} budgetSpent={health.budget_spent_usd}
         budgetTotal={health.budget_total_usd} scenesCompleted={health.scenes_completed} scenesTotal={health.scenes_total} risk={health.overall_risk} />
-      {incidents.map((incident) => replay
+      {incidents.map((incident) => state.kind === "REPLAY_READY"
         ? <ActiveIncidentCard key={incident.incident_id} incident={incident} runtimeMode="RECORDED_REPLAY" client={null} />
-        : <ActiveIncidentCard key={incident.incident_id} incident={incident} runtimeMode="LIVE_GEMINI" client={client!} />)}
+        : <ActiveIncidentCard key={incident.incident_id} incident={incident} runtimeMode="LIVE_GEMINI" client={state.client} />)}
       <TodayProgress scenes={health.today_scenes} />
     </main>
     <footer className="border-t border-white/5 py-4 text-center text-[10px] text-zinc-500">

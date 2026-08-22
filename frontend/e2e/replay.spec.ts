@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { E2E_BASE_URL } from "./runtime";
 
 test("Recorded Replay completes without backend, SSE, WebSocket, or browser errors", async ({ page }) => {
   const browserErrors: string[] = [];
@@ -11,7 +12,7 @@ test("Recorded Replay completes without backend, SSE, WebSocket, or browser erro
   page.on("requestfailed", (request) => failedRequests.push(request.url()));
   page.on("request", (request) => {
     const url = new URL(request.url());
-    const isStaticOrigin = url.origin === "http://127.0.0.1:4173";
+    const isStaticOrigin = url.origin === new URL(E2E_BASE_URL).origin;
     if (!isStaticOrigin || url.pathname.startsWith("/api/")) backendRequests.push(request.url());
   });
   await page.addInitScript(() => {
