@@ -9,6 +9,7 @@ export interface BeforeAfterSummaryProps {
   analysis?: AnalysisData | null;
   execution?: ExecutionData | null;
   events?: AnalysisEvent[];
+  runtimeMode?: "LIVE_GEMINI" | "RECORDED_REPLAY";
 }
 
 /**
@@ -23,6 +24,7 @@ export function BeforeAfterSummary({
   analysis,
   execution,
   events = [],
+  runtimeMode = "LIVE_GEMINI",
 }: BeforeAfterSummaryProps) {
   // Find decided option
   const selectedOption = useMemo(() => {
@@ -131,6 +133,11 @@ export function BeforeAfterSummary({
       className="mt-6 rounded-xl border border-emerald-500/40 bg-zinc-900/90 p-6 shadow-2xl backdrop-blur-md"
       data-testid="before-after-summary"
     >
+      {runtimeMode === "RECORDED_REPLAY" && (
+        <p className="mb-4 rounded border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs font-bold text-amber-200" role="status">
+          RECORDED REPLAY / SAMPLE DATA
+        </p>
+      )}
       {/* Header Banner */}
       <div className="flex items-center justify-between border-b border-white/10 pb-4">
         <div className="flex items-center gap-3">

@@ -7,6 +7,7 @@ import { isMCPCallEvent } from "@/lib/eventStream";
 export interface AgentLiveViewProps {
   events: AnalysisEvent[];
   className?: string;
+  replay?: boolean;
 }
 
 interface AgentNodeConfig {
@@ -59,7 +60,7 @@ interface NodeState {
   lastUpdated?: string;
 }
 
-export function AgentLiveView({ events, className = "" }: AgentLiveViewProps) {
+export function AgentLiveView({ events, className = "", replay = false }: AgentLiveViewProps) {
   // Extract state for Orchestrator and each domain agent from events
   const { orchestratorState, nodeStates } = useMemo(() => {
     let orchStatus: AgentEventStatus | "IDLE" = "IDLE";
@@ -127,11 +128,11 @@ export function AgentLiveView({ events, className = "" }: AgentLiveViewProps) {
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
           <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-100">
-            AI COORDINATION — AGENT LIVE VIEW
+            AI COORDINATION — {replay ? "REPLAYED AGENT VIEW" : "AGENT LIVE VIEW"}
           </h2>
         </div>
         <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono">
-          SPEC §9.2 • Real-time Multi-Agent Network
+          SPEC §9.2 • {replay ? "Representative Multi-Agent Scenario" : "Real-time Multi-Agent Network"}
         </span>
       </div>
 

@@ -1,5 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
+process.env.NEXT_PUBLIC_FILMOPS_MODE ??= "RECORDED_REPLAY";
+
 // Mock EventSource for jsdom test environment
 if (typeof global.EventSource === "undefined") {
   class MockEventSource {

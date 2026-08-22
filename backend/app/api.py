@@ -13,6 +13,7 @@ from fastapi import (
     Depends,
     HTTPException,
     Request,
+    Response,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -45,8 +46,9 @@ router = APIRouter()
 
 
 @router.get("/api/runtime")
-def get_runtime_metadata(request: Request) -> dict:
+def get_runtime_metadata(request: Request, response: Response) -> dict:
     """Public, secret-free evidence of the backend runtime in use."""
+    response.headers["Cache-Control"] = "no-store"
     return request.app.state.runtime.metadata.model_dump(mode="json")
 
 

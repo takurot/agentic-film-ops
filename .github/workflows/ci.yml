@@ -44,6 +44,8 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      NEXT_PUBLIC_FILMOPS_MODE: RECORDED_REPLAY
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

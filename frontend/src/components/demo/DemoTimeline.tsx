@@ -51,12 +51,14 @@ export interface DemoTimelineProps {
   /** Whether the timeline is visible */
   visible?: boolean;
   onClose?: () => void;
+  replay?: boolean;
 }
 
 export function DemoTimeline({
   elapsedSeconds,
   visible = true,
   onClose,
+  replay = false,
 }: DemoTimelineProps) {
   const [startTime] = useState(() => Date.now());
   // wallElapsed is only used when elapsedSeconds prop is not provided
@@ -150,7 +152,7 @@ export function DemoTimeline({
             <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
           </span>
           <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-100">
-            LIVE DEMO — AGENTIC FILMOPS
+            {replay ? "RECORDED REPLAY — AGENTIC FILMOPS" : "LIVE DEMO — AGENTIC FILMOPS"}
           </span>
         </div>
         <div className="flex items-center gap-2.5">
