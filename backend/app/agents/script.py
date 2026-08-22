@@ -22,18 +22,10 @@ reasoning step. If continuity data ever needs interpretive explanation (e.g.
 Explainability text, SPEC §9.8), that's new scope beyond #32's Acceptance
 Criteria and belongs in a follow-up issue.
 
-Transport note (SPEC §5 "Transport & Invocation"): each MCP server is meant
-to run as its own subprocess, reached over the stdio transport — the backend
-has no shared MCP client for that yet (only test-only `mcp.client.stdio`
-usage exists today). This Agent calls the Script MCP tool functions
-in-process instead (same call style `tests/test_script_mcp_server.py`
-already uses, and the tool functions still emit their own `MCPCallEvent`s via
-`MCPCommonServer.tool()` when called this way). `ScriptMCPPort` isolates that
-choice behind a narrow interface so swapping in a real stdio-backed client
-later is a one-adapter change. Note also that `MCPCallEvent`s currently
-publish to `mcp_common.events.default_event_sink`, a separate pub/sub from
-this module's `AnalysisEventBus` events — the two aren't bridged into one
-per-analysis stream yet (tracked as a gap for #9/#29, out of scope here).
+Transport note (SPEC §5 "Transport & Invocation"): production adapts the
+lifespan-owned stdio `MCPClient` to `ScriptMCPPort`. Explicit replay and unit
+tests may use the in-process port, preserving the same consumer-owned
+interface and validated result models.
 """
 
 from typing import Any, Protocol
@@ -41,6 +33,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel
 
 from app.events import AgentEvent, AnalysisEventBus, default_event_bus
+from app.mcp_client import MCPClient
 from app.mcp_servers.script import (
     get_continuity_constraints as _get_continuity_constraints,
 )
@@ -126,8 +119,7 @@ class ScriptMCPPort(Protocol):
 
 
 class _InProcessScriptMCP:
-    """Default `ScriptMCPPort`: calls the Script MCP tool functions directly
-    in-process (see module docstring's Transport note)."""
+    """Explicit replay/test port calling registered tool functions in-process."""
 
     async def get_scene(self, scene_id: str) -> dict[str, Any]:
         return await _get_scene(scene_id=scene_id)
@@ -145,12 +137,32 @@ class _InProcessScriptMCP:
 _default_mcp = _InProcessScriptMCP()
 
 
+class _ClientScriptMCP:
+    def __init__(self, client: MCPClient) -> None:
+        self._client = client
+
+    async def get_scene(self, scene_id: str) -> dict[str, Any]:
+        return await self._client.call("script", "get_scene", {"scene_id": scene_id})
+
+    async def get_scene_requirements(self, scene_id: str) -> dict[str, Any]:
+        return await self._client.call("script", "get_scene_requirements", {"scene_id": scene_id})
+
+    async def get_scene_dependencies(self, scene_id: str) -> dict[str, Any]:
+        return await self._client.call("script", "get_scene_dependencies", {"scene_id": scene_id})
+
+    async def get_continuity_constraints(self, scene_id: str) -> dict[str, Any]:
+        return await self._client.call(
+            "script", "get_continuity_constraints", {"scene_id": scene_id}
+        )
+
+
 async def analyze_scene(
     scene_id: str,
     *,
     analysis_id: str,
     event_bus: AnalysisEventBus | None = None,
     mcp: ScriptMCPPort | None = None,
+    mcp_client: MCPClient | None = None,
 ) -> ScriptAgentResult:
     """Run the SPEC §6.5 flow for `scene_id`, reporting status transitions to
     the Event Stream (SPEC §8) under `analysis_id`.
@@ -162,7 +174,9 @@ async def analyze_scene(
     silently swallowed failure.
     """
     bus = event_bus or default_event_bus
-    mcp_client = mcp or _default_mcp
+    if mcp is not None and mcp_client is not None:
+        raise ValueError("Pass either mcp or mcp_client, not both")
+    script_mcp = mcp or (_ClientScriptMCP(mcp_client) if mcp_client else _default_mcp)
 
     def publish(status: str, message: str, *, type: str) -> None:
         bus.publish(
@@ -184,22 +198,22 @@ async def analyze_scene(
             f"Fetching scene and requirements for {scene_id}",
             type="MCP_QUERY",
         )
-        scene_raw = await mcp_client.get_scene(scene_id)
-        requirements_raw = await mcp_client.get_scene_requirements(scene_id)
+        scene_raw = await script_mcp.get_scene(scene_id)
+        requirements_raw = await script_mcp.get_scene_requirements(scene_id)
 
         publish(
             "QUERYING_MCP",
             f"Identifying affected resources for {scene_id}",
             type="MCP_QUERY",
         )
-        dependencies_raw = await mcp_client.get_scene_dependencies(scene_id)
+        dependencies_raw = await script_mcp.get_scene_dependencies(scene_id)
 
         publish(
             "QUERYING_MCP",
             f"Checking continuity constraints for {scene_id}",
             type="MCP_QUERY",
         )
-        continuity_raw = await mcp_client.get_continuity_constraints(scene_id)
+        continuity_raw = await script_mcp.get_continuity_constraints(scene_id)
     except Exception as exc:
         publish("FAILED", str(exc), type="STATUS")
         raise

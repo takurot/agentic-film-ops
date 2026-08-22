@@ -32,7 +32,7 @@ This vision became **Agentic FilmOps**: the world's first Autonomous Production 
 
 We designed Agentic FilmOps from the ground up with architectural rigor, modularity, and zero shortcuts:
 
-- **AI Core & Multi-Agent Orchestration**: Built with **Google Gemini 2.5** (Flash for real-time extraction, Pro for deep synthesis) and the **Google Agent Development Kit (ADK)**. Six domain agents (**Weather, Script, Location, Actor, Equipment, Budget**) communicate with the central Production Orchestrator.
+- **AI Core & Multi-Agent Orchestration**: Built with **Google Gemini 2.5 Flash through the Google Gen AI SDK**. Six domain agents (**Weather, Script, Location, Actor, Equipment, Budget**) communicate with the central Production Orchestrator implemented in the backend.
 - **Standardized Tool Bus (Model Context Protocol - MCP)**: Every domain communicates strictly over MCP stdio transport layers (`weather_mcp`, `script_mcp`, `actor_mcp`, `location_mcp`, `equipment_mcp`, `budget_mcp`). The UI never directly calls agents—preserving complete protocol integrity.
 - **Production Resource Dependency Graph**: Modeled in **SQLAlchemy & SQLite**, mapping scenes, cast members, rental equipment, stage facilities, and contract availability into an interconnected knowledge graph.
 - **Frontend Command Center**: Built with **Next.js 16 (App Router)**, **React 19**, **Tailwind CSS v4**, and **React Flow**. It visualizes real-time pulse propagation across the resource graph, live streaming MCP stdio logs, and floating 4-minute demo timeline controls.

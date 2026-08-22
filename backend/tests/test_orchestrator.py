@@ -1,6 +1,7 @@
 """End-to-end and unit tests for Production Orchestrator (SPEC §6.1, §3.2, §3.4, §8, §9, §11)."""
 
 from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -8,7 +9,7 @@ from fastapi.testclient import TestClient
 
 import app.db as db_module
 from app.db import create_db_engine, get_db_session, get_session, init_db
-from app.events import AnalysisEventBus
+from app.events import AnalysisEventBus, current_event_channel
 from app.main import app
 from app.models import Actor, Scene
 from app.orchestrator import ProductionOrchestrator
@@ -16,15 +17,139 @@ from app.seed import seed_scene_42
 from app.workflow import AnalysisOutcome, Incident
 
 
+def _script_result(*, equipment: list[str] | None = None):
+    return SimpleNamespace(
+        scene=SimpleNamespace(
+            scheduled="2026-09-02T14:00",
+            duration_hours=4,
+            name="Rooftop confrontation",
+        ),
+        dependencies=SimpleNamespace(location="LOC-003", actors=[], equipment=equipment or []),
+        continuity=SimpleNamespace(must_precede=[], must_follow=[], same_day_as=[]),
+    )
+
+
+def _location_result():
+    candidate = SimpleNamespace(id="LOC-STUDIO-B", name="Studio B")
+    return SimpleNamespace(proposed_location_id="LOC-STUDIO-B", candidates=[candidate])
+
+
+def _budget_result():
+    return SimpleNamespace(
+        options=[
+            SimpleNamespace(candidate_id=name, total_cost_impact=100.0)
+            for name in ("OPTION_A", "OPTION_B", "OPTION_C")
+        ]
+    )
+
+
 def make_gemini_stub() -> AsyncMock:
     stub = AsyncMock()
-    fake_response = AsyncMock()
-    fake_response.text = (
-        '{"status": "AVAILABLE", "window_start": "16:00", "window_end": "20:00", '
-        '"constraints": ["Hard stop 20:00"]}'
-    )
-    stub.generate_content = AsyncMock(return_value=fake_response)
+
+    async def generate(prompt: str):
+        if "talent manager" in prompt:
+            text = (
+                '{"status": "AVAILABLE", "window_start": "16:00", '
+                '"window_end": "20:00", "constraints": ["Hard stop 20:00"]}'
+            )
+        elif "equipment rental vendor" in prompt:
+            text = '{"summary": "The requested equipment window is available."}'
+        elif "location manager" in prompt:
+            text = '{"status": "AVAILABLE", "notes": []}'
+        elif "one-sentence justification" in prompt:
+            text = "Studio B is an available indoor alternative."
+        else:
+            text = "Option A minimizes schedule delay and cost."
+        return SimpleNamespace(text=text)
+
+    stub.generate_content = AsyncMock(side_effect=generate)
     return stub
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_fails_closed_when_a_domain_agent_fails(monkeypatch):
+    monkeypatch.setattr("app.orchestrator.analyze_scene", AsyncMock(return_value=_script_result()))
+    monkeypatch.setattr(
+        "app.orchestrator.evaluate_cost_impact", AsyncMock(return_value=_budget_result())
+    )
+    location_agent = AsyncMock()
+    location_agent.propose_alternative.side_effect = RuntimeError("private provider detail")
+    schedule_agent = AsyncMock()
+    schedule_agent.replan.return_value = SimpleNamespace(
+        options=[], overall_explainability="must not be returned"
+    )
+    event_bus = AnalysisEventBus()
+    queue = event_bus.subscribe("AN-FAIL")
+    orchestrator = ProductionOrchestrator(
+        gemini_client=make_gemini_stub(),
+        event_bus=event_bus,
+        location_agent=location_agent,
+        schedule_agent=schedule_agent,
+        runtime_mode="LIVE_GEMINI",
+    )
+    incident = Incident(
+        incident_id="INC-FAIL",
+        type="WEATHER",
+        scene_id="SC-042",
+        headline="Rain",
+        detail="Rain",
+        detected_at=datetime.now(),
+        resolved=False,
+    )
+
+    outcome = await orchestrator.run_analysis(incident, "AN-FAIL")
+
+    assert outcome.status == "FAILED"
+    assert outcome.options == []
+    assert "private provider detail" not in (outcome.explainability or "")
+    schedule_agent.replan.assert_not_awaited()
+    assert current_event_channel.get() is None
+    events = []
+    while not queue.empty():
+        events.append(queue.get_nowait())
+    assert any("[LIVE_GEMINI]" in event.message for event in events)
+
+
+@pytest.mark.asyncio
+async def test_equipment_vendor_result_is_forwarded_to_constraint_solver(monkeypatch):
+    monkeypatch.setattr(
+        "app.orchestrator.analyze_scene",
+        AsyncMock(return_value=_script_result(equipment=["EQ-001"])),
+    )
+    monkeypatch.setattr(
+        "app.orchestrator.evaluate_cost_impact", AsyncMock(return_value=_budget_result())
+    )
+    location_agent = AsyncMock()
+    location_agent.propose_alternative.return_value = _location_result()
+    equipment_agent = AsyncMock()
+    equipment_agent.resolve_reservation.return_value = SimpleNamespace(
+        reserved=False, vendor_outcome="denied"
+    )
+    schedule_agent = AsyncMock()
+    schedule_agent.replan.return_value = SimpleNamespace(
+        options=[], overall_explainability="No feasible plan"
+    )
+    orchestrator = ProductionOrchestrator(
+        gemini_client=make_gemini_stub(),
+        location_agent=location_agent,
+        equipment_agent=equipment_agent,
+        schedule_agent=schedule_agent,
+    )
+    incident = Incident(
+        incident_id="INC-EQUIPMENT",
+        type="WEATHER",
+        scene_id="SC-042",
+        headline="Rain",
+        detail="Rain",
+        detected_at=datetime.now(),
+        resolved=False,
+    )
+
+    outcome = await orchestrator.run_analysis(incident, "AN-EQUIPMENT")
+
+    assert outcome.status == "COMPLETED"
+    solver_input = schedule_agent.replan.await_args.args[1]
+    assert solver_input.equipment[0].extension_available is False
 
 
 @pytest.fixture
@@ -56,8 +181,8 @@ def orchestrator_client(isolated_db_engine):
             yield session
 
     app.dependency_overrides[get_db_session] = override_db
-    client = TestClient(app)
-    yield client, isolated_db_engine
+    with TestClient(app) as client:
+        yield client, isolated_db_engine
     app.dependency_overrides.clear()
 
 
@@ -147,6 +272,7 @@ async def test_orchestrator_execute_plan_on_approval(isolated_db_engine):
         # Check Actor booking state
         actor_emma = db.get(Actor, "ACT-001")
         assert actor_emma.status == "confirmed"
+    assert current_event_channel.get() is None
 
 
 def test_api_end_to_end_closed_loop(orchestrator_client):

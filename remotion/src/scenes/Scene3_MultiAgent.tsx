@@ -76,7 +76,7 @@ export const Scene3_MultiAgent: React.FC = () => {
   return (
     <UIWrapper
       title="Agent Live View — Parallel Multi-Agent Orchestration"
-      badge="GEMINI 2.5 FLASH + GOOGLE ADK ENGINE"
+      badge="GEMINI 2.5 FLASH + MCP ORCHESTRATOR"
     >
       <div className="mx-auto flex max-w-6xl flex-col gap-5">
         {/* Top Coordinator Banner */}

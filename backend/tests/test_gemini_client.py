@@ -36,11 +36,12 @@ def test_config_model_is_overridable_via_env(monkeypatch):
     assert config.model == "gemini-2.5-pro"
 
 
-def test_client_construction_without_api_key_fails_fast(monkeypatch):
+async def test_missing_api_key_is_reported_as_a_sanitized_runtime_failure(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    client = GeminiClient(GeminiConfig(api_key=None))
 
-    with pytest.raises(RuntimeError, match="GEMINI_API_KEY"):
-        GeminiClient(GeminiConfig(api_key=None))
+    with pytest.raises(GeminiUnavailableError, match="GEMINI_NOT_CONFIGURED"):
+        await client.generate_content("hello")
 
 
 async def test_generate_content_returns_result_on_first_success():
@@ -83,10 +84,11 @@ async def test_generate_content_fails_cleanly_after_exhausting_retries(monkeypat
     monkeypatch.setattr(asyncio, "sleep", AsyncMock())
     client = GeminiClient(GeminiConfig(api_key="test-key", max_retries=1), client=fake_sdk_client)
 
-    with pytest.raises(GeminiUnavailableError):
+    with pytest.raises(GeminiUnavailableError, match="GEMINI_UNAVAILABLE") as exc_info:
         await client.generate_content("hello")
 
     assert fake_sdk_client.aio.models.generate_content.await_count == 2
+    assert "boom" not in str(exc_info.value)
 
 
 async def test_generate_content_does_not_retry_non_retryable_errors():

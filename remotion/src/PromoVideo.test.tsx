@@ -43,7 +43,7 @@ describe("PromoVideo — SPEC §10 Compliance & Component Tests", () => {
     render(<Scene1_Logo />);
     expect(screen.getByText(/AGENTIC FILM OPS/i)).toBeInTheDocument();
     expect(screen.getByText(/Autonomous Production Disruption Recovery/i)).toBeInTheDocument();
-    expect(screen.getByText(/Gemini 2.5 • Google ADK • Model Context Protocol/i)).toBeInTheDocument();
+    expect(screen.getByText(/Gemini 2.5 • Google Gen AI SDK • Model Context Protocol/i)).toBeInTheDocument();
   });
 
   it("renders Scene 2 (Dashboard & Alert) with metrics and active weather alert", () => {

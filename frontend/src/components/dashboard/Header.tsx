@@ -11,6 +11,7 @@ export function Header({
   onReset,
   resetting = false,
   showTimeline = false,
+  runtimeLabel,
 }: {
   dayCurrent: number;
   dayTotal: number;
@@ -18,6 +19,7 @@ export function Header({
   onReset?: () => void;
   resetting?: boolean;
   showTimeline?: boolean;
+  runtimeLabel?: string;
 }) {
   return (
     <header className="flex items-center justify-between border-b border-white/10 bg-zinc-950 px-6 py-4">
@@ -29,6 +31,11 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-3">
+        {runtimeLabel && (
+          <span className="rounded border border-sky-500/40 bg-sky-950/40 px-3 py-1.5 font-mono text-[10px] font-bold tracking-wider text-sky-300">
+            {runtimeLabel}
+          </span>
+        )}
         {/* Demo control buttons */}
         {onToggleTimeline && (
           <button
@@ -64,4 +71,3 @@ export function Header({
     </header>
   );
 }
-

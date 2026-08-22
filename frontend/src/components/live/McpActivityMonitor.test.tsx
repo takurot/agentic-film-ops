@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { McpActivityMonitor } from "./McpActivityMonitor";
-import type { AnalysisEvent } from "@/lib/eventStream";
+import type { AnalysisEvent, MCPCallEvent } from "@/lib/eventStream";
 
 describe("McpActivityMonitor Component", () => {
   it("renders header and empty state when no events", () => {
@@ -66,16 +66,16 @@ describe("McpActivityMonitor Component", () => {
   });
 
   it("handles partial event data gracefully without rendering undefined", () => {
-    const partialEvents: any[] = [
+    const partialEvents = [
       {
         timestamp: "14:05:00",
         type: "MCP_CALL",
         status: "QUERYING_MCP",
         resource: "RES-123",
       },
-    ];
+    ] satisfies Partial<MCPCallEvent>[];
 
-    render(<McpActivityMonitor events={partialEvents} />);
+    render(<McpActivityMonitor events={partialEvents as AnalysisEvent[]} />);
     expect(screen.getByText(/→ mcp\.call\(RES-123\)/i)).toBeInTheDocument();
     expect(screen.queryByText(/undefined\.undefined/i)).not.toBeInTheDocument();
   });

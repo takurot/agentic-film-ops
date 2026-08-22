@@ -29,7 +29,7 @@ from app.agents.location import (
 )
 from app.db import get_session, init_db
 from app.events import AnalysisEventBus
-from app.gemini_client import GeminiUnavailableError
+from app.gemini_client import GeminiResponseValidationError, GeminiUnavailableError
 from app.mcp_servers import location
 from app.seed import SCENE_42_BLOCK, seed_scene_42
 
@@ -154,39 +154,36 @@ async def test_resolve_availability_contacts_manager_on_conflict_and_parses_repl
     assert other_event_types == {"LOCATION_AVAILABILITY"}
 
 
-async def test_resolve_availability_manager_reply_falls_back_to_unknown_on_invalid_json_syntax(
+async def test_resolve_availability_manager_reply_fails_closed_on_invalid_json_syntax(
     seeded_db, event_bus
 ):
     gemini = make_gemini_stub("not json at all")
     agent_ = LocationAgent(gemini_client=gemini, event_bus=event_bus)
 
-    result = await agent_.resolve_availability(
-        ANALYSIS_ID,
-        location_id="LOC-003",
-        scene_id="SC-042",
-        requested_start=CONFLICTING_WINDOW[0],
-        requested_end=CONFLICTING_WINDOW[1],
-    )
-
-    assert result.manager_reply.status == "UNKNOWN"
-    assert result.manager_reply.raw_message
+    with pytest.raises(GeminiResponseValidationError):
+        await agent_.resolve_availability(
+            ANALYSIS_ID,
+            location_id="LOC-003",
+            scene_id="SC-042",
+            requested_start=CONFLICTING_WINDOW[0],
+            requested_end=CONFLICTING_WINDOW[1],
+        )
 
 
-async def test_resolve_availability_manager_reply_falls_back_to_unknown_on_schema_mismatch(
+async def test_resolve_availability_manager_reply_fails_closed_on_schema_mismatch(
     seeded_db, event_bus
 ):
     gemini = make_gemini_stub('{"status": "MAYBE"}')
     agent_ = LocationAgent(gemini_client=gemini, event_bus=event_bus)
 
-    result = await agent_.resolve_availability(
-        ANALYSIS_ID,
-        location_id="LOC-003",
-        scene_id="SC-042",
-        requested_start=CONFLICTING_WINDOW[0],
-        requested_end=CONFLICTING_WINDOW[1],
-    )
-
-    assert result.manager_reply.status == "UNKNOWN"
+    with pytest.raises(GeminiResponseValidationError):
+        await agent_.resolve_availability(
+            ANALYSIS_ID,
+            location_id="LOC-003",
+            scene_id="SC-042",
+            requested_start=CONFLICTING_WINDOW[0],
+            requested_end=CONFLICTING_WINDOW[1],
+        )
 
 
 async def test_resolve_availability_manager_reply_strips_markdown_code_fence(seeded_db, event_bus):

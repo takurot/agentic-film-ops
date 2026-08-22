@@ -12,6 +12,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request,
     WebSocket,
     WebSocketDisconnect,
     status,
@@ -41,6 +42,12 @@ from app.workflow import (
 )
 
 router = APIRouter()
+
+
+@router.get("/api/runtime")
+def get_runtime_metadata(request: Request) -> dict:
+    """Public, secret-free evidence of the backend runtime in use."""
+    return request.app.state.runtime.metadata.model_dump(mode="json")
 
 
 @router.get("/api/production/health", response_model=ProductionHealthSchema)

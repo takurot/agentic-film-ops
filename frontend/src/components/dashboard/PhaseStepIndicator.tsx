@@ -78,8 +78,6 @@ export function PhaseStepIndicator({
         {STEPS.map((step) => {
           const isCompleted = step.number < currentOrder;
           const isActive = step.number === currentOrder;
-          const isUpcoming = step.number > currentOrder;
-
           return (
             <button
               key={step.id}

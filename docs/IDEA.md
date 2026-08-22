@@ -84,7 +84,7 @@ Manager      Rental       Location     Cost DB
                     │ ORCHESTRATOR          │
                     │                       │
                     │ Gemini                │
-                    │ Agent Development Kit │
+                    │ Google Gen AI SDK     │
                     └───────────┬───────────┘
                                 │
                            MCP Layer
@@ -906,7 +906,7 @@ Backend
 
 AI
  ├─ Gemini
- └─ Google ADK
+ └─ Google Gen AI SDK
 
 Agent
  ├─ Production Orchestrator
@@ -1033,4 +1033,3 @@ UI polishとデモシナリオ固定化。
 と理解できます。
 
 この**Production Network + Live Agent Activity + Human Approval**の3点をデモの中心に置くのが、このハッカソンでは特に強い構成だと思います。
-

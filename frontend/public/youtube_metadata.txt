@@ -19,7 +19,7 @@ When Rain Threatens a $20M Movie Set, AI Resolves the Crisis in 4 Minutes | Agen
 ================================================================================
 
 🎬 Agentic FilmOps — Autonomous Film Production Operations & Disruption Recovery
-Powered by Gemini 2.5, Google Agent Development Kit (ADK), and Model Context Protocol (MCP).
+Powered by Gemini 2.5 through the Google Gen AI SDK and Model Context Protocol (MCP).
 
 🌐 Live Interactive Web App: https://takurot0708.web.app
 💻 GitHub Repository: https://github.com/takurot/agentic-film-ops
@@ -52,7 +52,7 @@ Agentic FilmOps changes everything. In under 4 minutes, a coordinated network of
 ---
 
 ### 🛠️ Architecture & Tech Stack
-- AI Core & Orchestration: Gemini 2.5 Flash / Pro with Google ADK
+- AI Core: Gemini 2.5 Flash through the Google Gen AI SDK
 - Tool Protocol: Model Context Protocol (MCP) connecting Weather, Script, Actor, Location, Equipment, and Budget servers
 - Constraint Solver: Deterministic Pareto Multi-Objective Optimization
 - Frontend Dashboard: Next.js 16 (App Router), React 19, Tailwind CSS v4, React Flow
@@ -68,4 +68,4 @@ Agentic FilmOps changes everything. In under 4 minutes, a coordinated network of
 
 ---
 
-#GeminiAI #AgenticAI #MCP #ModelContextProtocol #FilmProduction #GoogleADK #Nextjs #ReactFlow #Remotion #AIAgents #Hackathon #MachineLearning
+#GeminiAI #AgenticAI #MCP #ModelContextProtocol #FilmProduction #GoogleGenAI #Nextjs #ReactFlow #Remotion #AIAgents #Hackathon #MachineLearning

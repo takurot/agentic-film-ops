@@ -176,7 +176,7 @@ async def test_check_scene_mcp_failure_publishes_failed_and_raises(seeded_db, mo
     async def boom(**kwargs):
         raise RuntimeError("weather service unavailable")
 
-    monkeypatch.setattr(weather_agent, "get_forecast", boom)
+    monkeypatch.setattr(weather_mcp, "get_forecast", boom)
     bus, queue = _subscribe("SC-042")
 
     with pytest.raises(RuntimeError, match="weather service unavailable"):
@@ -189,13 +189,13 @@ async def test_check_scene_mcp_failure_publishes_failed_and_raises(seeded_db, mo
 
 async def test_check_scene_calls_subscribe_weather_alert(seeded_db, monkeypatch):
     calls = []
-    original = weather_agent.subscribe_weather_alert
+    original = weather_mcp.subscribe_weather_alert
 
     async def spy(**kwargs):
         calls.append(kwargs)
         return await original(**kwargs)
 
-    monkeypatch.setattr(weather_agent, "subscribe_weather_alert", spy)
+    monkeypatch.setattr(weather_mcp, "subscribe_weather_alert", spy)
 
     await WeatherAgent().check_scene("SC-042")
 
@@ -217,10 +217,10 @@ async def test_check_scene_boundary_probability_equals_threshold_creates_inciden
     async def fake_subscribe(**kwargs):
         return {"location_id": "LOC-003", "subscribed": True}
 
-    monkeypatch.setattr(weather_agent, "get_scene", fake_get_scene)
-    monkeypatch.setattr(weather_agent, "get_forecast", fake_forecast)
-    monkeypatch.setattr(weather_agent, "get_weather_risk", fake_risk)
-    monkeypatch.setattr(weather_agent, "subscribe_weather_alert", fake_subscribe)
+    monkeypatch.setattr(script_mcp, "get_scene", fake_get_scene)
+    monkeypatch.setattr(weather_mcp, "get_forecast", fake_forecast)
+    monkeypatch.setattr(weather_mcp, "get_weather_risk", fake_risk)
+    monkeypatch.setattr(weather_mcp, "subscribe_weather_alert", fake_subscribe)
 
     detection = await WeatherAgent(rain_probability_threshold=0.8).check_scene("SC-042")
 
@@ -242,10 +242,10 @@ async def test_check_scene_below_threshold_returns_no_incident_with_risk_info(
     async def fake_subscribe(**kwargs):
         return {"location_id": "LOC-003", "subscribed": True}
 
-    monkeypatch.setattr(weather_agent, "get_scene", fake_get_scene)
-    monkeypatch.setattr(weather_agent, "get_forecast", fake_forecast)
-    monkeypatch.setattr(weather_agent, "get_weather_risk", fake_risk)
-    monkeypatch.setattr(weather_agent, "subscribe_weather_alert", fake_subscribe)
+    monkeypatch.setattr(script_mcp, "get_scene", fake_get_scene)
+    monkeypatch.setattr(weather_mcp, "get_forecast", fake_forecast)
+    monkeypatch.setattr(weather_mcp, "get_weather_risk", fake_risk)
+    monkeypatch.setattr(weather_mcp, "subscribe_weather_alert", fake_subscribe)
 
     detection = await WeatherAgent().check_scene("SC-042")
 

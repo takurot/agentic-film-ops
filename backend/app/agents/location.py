@@ -42,12 +42,9 @@ separate steps rather than conflating them. `hold_location()`/
 `confirm_location()` are Orchestrator/Execution-stage concerns (SPEC §9.10)
 and out of scope for this reasoning-only Agent.
 
-Transport note (SPEC §5's "Transport & Invocation"): like `ActorAgent`/
-`ScriptAgent`, this Agent calls `app.mcp_servers.location`'s tool functions
-in-process rather than through a real stdio `ClientSession` (no MCP client
-exists yet in this repo — Orchestrator, Issue #9, is unimplemented). This is
-a deliberate, documented MVP shortcut, not a violation of Agent/MCP role
-separation.
+Transport note (SPEC §5's "Transport & Invocation"): production injects the
+lifespan-owned stdio `MCPClient`; explicit replay and unit tests use the same
+fixed tool registry through the in-process adapter.
 """
 
 import json
@@ -59,8 +56,13 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, ValidationError
 
 from app.events import AgentEvent, AgentEventStatus, AnalysisEventBus, default_event_bus
-from app.gemini_client import GeminiClient, GeminiUnavailableError, with_min_display_time
-from app.mcp_servers import location as location_mcp
+from app.gemini_client import (
+    GeminiClient,
+    GeminiResponseValidationError,
+    GeminiUnavailableError,
+    with_min_display_time,
+)
+from app.mcp_client import InProcessMCPClient, MCPClient
 
 AGENT_NAME = "LocationAgent"
 
@@ -190,10 +192,12 @@ class LocationAgent:
         gemini_client: GeminiClient,
         config: LocationAgentConfig | None = None,
         event_bus: AnalysisEventBus | None = None,
+        mcp_client: MCPClient | None = None,
     ) -> None:
         self._gemini = gemini_client
         self._config = config or LocationAgentConfig()
         self._event_bus = event_bus or default_event_bus
+        self._mcp = mcp_client or InProcessMCPClient()
 
     async def resolve_availability(
         self,
@@ -329,7 +333,7 @@ class LocationAgent:
         self, analysis_id: str, location_id: str, event_type: EventType = "LOCATION_AVAILABILITY"
     ) -> dict[str, Any]:
         self._publish(analysis_id, "QUEUED", location_id, event_type, f"Checking {location_id}")
-        return await location_mcp.get_location(location_id=location_id)
+        return await self._mcp.call("location", "get_location", {"location_id": location_id})
 
     async def _check_availability(
         self, analysis_id: str, location_id: str, start: str, end: str
@@ -341,7 +345,11 @@ class LocationAgent:
             "LOCATION_AVAILABILITY",
             f"Checking {location_id}'s availability for the requested window",
         )
-        return await location_mcp.check_availability(location_id=location_id, start=start, end=end)
+        return await self._mcp.call(
+            "location",
+            "check_availability",
+            {"location_id": location_id, "start": start, "end": end},
+        )
 
     def _decide_manager_contact(
         self, analysis_id: str, location_id: str, availability: dict[str, Any]
@@ -375,8 +383,10 @@ class LocationAgent:
             "EXTERNAL_REQUEST",
             f"Contacting {location_info['name']}'s manager",
         )
-        contact_result = await location_mcp.contact_location_manager(
-            location_id=location_id, message=request_message
+        contact_result = await self._mcp.call(
+            "location",
+            "contact_location_manager",
+            {"location_id": location_id, "message": request_message},
         )
         raw_reply = contact_result["response"]
 
@@ -410,7 +420,9 @@ class LocationAgent:
             "LOCATION_ALTERNATIVE",
             f"Searching indoor alternative locations for {location_id}",
         )
-        found = await location_mcp.find_alternative_locations(location_id=location_id)
+        found = await self._mcp.call(
+            "location", "find_alternative_locations", {"location_id": location_id}
+        )
         alternatives = found["alternatives"]
         if not alternatives:
             return []
@@ -424,8 +436,14 @@ class LocationAgent:
         )
         candidates = []
         for alt in alternatives:
-            availability = await location_mcp.check_availability(
-                location_id=alt["id"], start=requested_start, end=requested_end
+            availability = await self._mcp.call(
+                "location",
+                "check_availability",
+                {
+                    "location_id": alt["id"],
+                    "start": requested_start,
+                    "end": requested_end,
+                },
             )
             candidates.append(
                 AlternativeCandidate(
@@ -474,7 +492,9 @@ class LocationAgent:
             self._gemini.generate_content(prompt), self._config.parse_min_display_seconds
         )
         text = (response.text or "").strip()
-        return text or f"{chosen.name} is indoor and not weather-dependent."
+        if not text:
+            raise GeminiResponseValidationError("GEMINI_RESPONSE_INVALID")
+        return text
 
     def _build_request_message(
         self,
@@ -501,8 +521,8 @@ class LocationAgent:
         try:
             data = json.loads(_strip_code_fence(text))
             return ManagerResponse(raw_message=raw_message, **data)
-        except (json.JSONDecodeError, ValidationError, TypeError):
-            return ManagerResponse(status="UNKNOWN", raw_message=raw_message)
+        except (json.JSONDecodeError, ValidationError, TypeError) as exc:
+            raise GeminiResponseValidationError("GEMINI_RESPONSE_INVALID") from exc
 
     def _summarize(self, parsed: ManagerResponse) -> str:
         return parsed.status
@@ -514,7 +534,7 @@ class LocationAgent:
         `mcp_servers.location`'s `f"Unknown location_id: {location_id}"`).
         Shared by both `resolve_availability()` and `propose_alternative()`
         so the sanitization behavior can't drift between the two flows."""
-        if isinstance(exc, GeminiUnavailableError):
+        if isinstance(exc, (GeminiUnavailableError, GeminiResponseValidationError)):
             return "Location Agent failed: Gemini is unavailable"
         return f"Location Agent failed: {exc}"
 

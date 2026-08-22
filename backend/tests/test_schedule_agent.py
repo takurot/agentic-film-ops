@@ -313,17 +313,19 @@ async def test_schedule_agent_replan_flow_and_events(event_bus):
 
 
 @pytest.mark.asyncio
-async def test_schedule_agent_fallback_when_gemini_unavailable(event_bus):
+async def test_schedule_agent_fails_closed_when_gemini_unavailable(event_bus):
     input_data = sample_replan_input()
     failing_gemini = make_gemini_stub(side_effect=GeminiUnavailableError("Service unavailable"))
     agent = ScheduleAgent(gemini_client=failing_gemini, event_bus=event_bus)
 
-    # Should not crash, but provide deterministic fallback explainability
-    result = await agent.replan(ANALYSIS_ID, input_data)
-
-    assert len(result.options) >= 1
-    assert result.overall_explainability is not None
-    assert "Option A" in result.overall_explainability
+    queue = event_bus.subscribe(ANALYSIS_ID)
+    with pytest.raises(GeminiUnavailableError):
+        await agent.replan(ANALYSIS_ID, input_data)
+    events = []
+    while not queue.empty():
+        events.append(queue.get_nowait())
+    assert events[-1].status == "FAILED"
+    event_bus.unsubscribe(ANALYSIS_ID, queue)
 
 
 @pytest.mark.asyncio

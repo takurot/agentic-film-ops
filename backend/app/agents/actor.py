@@ -1,21 +1,9 @@
 """Actor Agent (SPEC §6.2): reasoning layer over the Actor MCP (SPEC §5.1).
 
-Agent = Reasoning, MCP = Access (SPEC §3.3): this module calls only
-`app.mcp_servers.actor`'s tool functions for all actor data/state — it never
-imports `app.db`/`app.models` directly (statically verified by
-`tests/test_actor_agent.py`'s import check, covering the Issue #10
-Acceptance Criterion "Uses Actor MCP tools exclusively for access/action").
-
-SPEC §5's "Transport & Invocation" calls for MCP servers to run as
-independent stdio subprocesses with the Backend as MCP client. No such MCP
-client exists yet in this repo (the Production Orchestrator, Issue #9, is
-unimplemented) — so, like `tests/test_actor_mcp_server.py`'s own unit tests,
-this Agent calls `app.mcp_servers.actor`'s tool functions in-process for
-now. This is a deliberate, documented MVP shortcut, not a violation of
-Agent/MCP role separation: the only calls made are the same tool functions a
-real MCP subprocess would expose over stdio. A future change (#9 or later)
-can swap this for a real `ClientSession` without changing `ActorAgent`'s
-public interface.
+Agent = Reasoning, MCP = Access (SPEC §3.3): all actor data/state flows
+through the injected `MCPClient`. `LIVE_GEMINI` supplies the lifespan-owned
+stdio client; explicit replay and unit tests use the registered in-process
+adapter. This module never imports `app.db`/`app.models` directly.
 
 Note `app.mcp_servers.actor`'s `_contact_sessions` dict is keyed by
 `actor_id` only (not per-analysis) per that module's own docstring — two
@@ -34,8 +22,13 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from app.events import AgentEvent, AgentEventStatus, AnalysisEventBus, default_event_bus
-from app.gemini_client import GeminiClient, GeminiUnavailableError, with_min_display_time
-from app.mcp_servers import actor as actor_mcp
+from app.gemini_client import (
+    GeminiClient,
+    GeminiResponseValidationError,
+    GeminiUnavailableError,
+    with_min_display_time,
+)
+from app.mcp_client import InProcessMCPClient, MCPClient
 
 AGENT_NAME = "ActorAgent"
 
@@ -147,10 +140,12 @@ class ActorAgent:
         gemini_client: GeminiClient,
         config: ActorAgentConfig | None = None,
         event_bus: AnalysisEventBus | None = None,
+        mcp_client: MCPClient | None = None,
     ) -> None:
         self._gemini = gemini_client
         self._config = config or ActorAgentConfig()
         self._event_bus = event_bus or default_event_bus
+        self._mcp = mcp_client or InProcessMCPClient()
 
     async def resolve_availability(
         self,
@@ -212,7 +207,9 @@ class ActorAgent:
         self._publish(
             analysis_id, "QUEUED", actor_id, "ACTOR_AVAILABILITY", f"Checking {actor_id}'s calendar"
         )
-        availability = await actor_mcp.get_actor_availability(actor_id=actor_id)
+        availability = await self._mcp.call(
+            "actor", "get_actor_availability", {"actor_id": actor_id}
+        )
 
         self._publish(
             analysis_id,
@@ -221,7 +218,7 @@ class ActorAgent:
             "ACTOR_AVAILABILITY",
             f"Checking {actor_id}'s contract",
         )
-        constraints = await actor_mcp.get_actor_constraints(actor_id=actor_id)
+        constraints = await self._mcp.call("actor", "get_actor_constraints", {"actor_id": actor_id})
         return availability, constraints
 
     def _decide_manager_contact(
@@ -252,7 +249,7 @@ class ActorAgent:
     ) -> tuple[str, "ManagerAvailability"]:
         """SPEC §6.2 flow steps 4-8: contact_manager() -> WAITING_EXTERNAL ->
         manager reply -> parse into structured availability."""
-        actor_info = await actor_mcp.get_actor(actor_id=actor_id)
+        actor_info = await self._mcp.call("actor", "get_actor", {"actor_id": actor_id})
         request_message = self._build_request_message(
             actor_info, scene_id, requested_start, requested_end
         )
@@ -264,7 +261,11 @@ class ActorAgent:
             "EXTERNAL_REQUEST",
             f"Contacting {actor_info['name']}'s manager",
         )
-        await actor_mcp.contact_manager(actor_id=actor_id, message=request_message)
+        await self._mcp.call(
+            "actor",
+            "contact_manager",
+            {"actor_id": actor_id, "message": request_message},
+        )
 
         raw_reply = await self._await_manager_response(actor_id)
 
@@ -311,7 +312,7 @@ class ActorAgent:
         Agent forever."""
         elapsed = 0.0
         while True:
-            response = await actor_mcp.get_manager_response(actor_id=actor_id)
+            response = await self._mcp.call("actor", "get_manager_response", {"actor_id": actor_id})
             if response["contact_status"] == "RESPONSE_RECEIVED":
                 return response["message"]
             if elapsed >= self._config.max_wait_seconds:
@@ -334,8 +335,8 @@ class ActorAgent:
         try:
             data = json.loads(_strip_code_fence(text))
             return ManagerAvailability(raw_message=raw_message, **data)
-        except (json.JSONDecodeError, ValidationError, TypeError):
-            return ManagerAvailability(status="UNKNOWN", raw_message=raw_message)
+        except (json.JSONDecodeError, ValidationError, TypeError) as exc:
+            raise GeminiResponseValidationError("GEMINI_RESPONSE_INVALID") from exc
 
     def _summarize(self, parsed: ManagerAvailability) -> str:
         if parsed.status == "AVAILABLE" and parsed.window_start:
@@ -347,7 +348,7 @@ class ActorAgent:
         provider/exception internals (e.g. a wrapped Gemini API error) to
         it — only our own, already-sanitized error messages (e.g.
         `mcp_servers.actor`'s `f"Unknown actor_id: {actor_id}"`)."""
-        if isinstance(exc, GeminiUnavailableError):
+        if isinstance(exc, (GeminiUnavailableError, GeminiResponseValidationError)):
             return "Actor Agent failed: Gemini is unavailable"
         return f"Actor Agent failed: {exc}"
 

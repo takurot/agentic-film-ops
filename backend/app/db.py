@@ -1,5 +1,6 @@
 """SQLite engine/session setup (local-only persistence, Issue #35)."""
 
+import os
 from collections.abc import Generator
 from pathlib import Path
 
@@ -15,7 +16,7 @@ import app.workflow  # noqa: F401
 from app.models import Base
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
-DEFAULT_DB_PATH = DATA_DIR / "agentic_filmops.db"
+DEFAULT_DB_PATH = Path(os.environ.get("FILMOPS_DB_PATH", DATA_DIR / "agentic_filmops.db"))
 
 
 def create_db_engine(db_path: Path = DEFAULT_DB_PATH) -> Engine:

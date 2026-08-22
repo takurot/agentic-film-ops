@@ -127,7 +127,7 @@ export const Scene8_ResolvedSummary: React.FC = () => {
             <div className="mt-8 flex items-center gap-4 rounded-full border border-emerald-500/40 bg-zinc-900/90 px-8 py-3 shadow-2xl">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
               <span className="font-mono text-xs font-bold text-emerald-300 tracking-widest uppercase">
-                Gemini 2.5 Flash • Google ADK • Model Context Protocol
+                Gemini 2.5 Flash • Google Gen AI SDK • Model Context Protocol
               </span>
             </div>
           </div>

@@ -10,7 +10,7 @@ interface UIWrapperProps {
 export const UIWrapper: React.FC<UIWrapperProps> = ({
   title = "Agentic FilmOps — Autonomous Production Command Center",
   subtitle = "Project Titan (Feature Film) • Principal Photography Day 12 / 30",
-  badge = "GEMINI + ADK + MCP RUNTIME",
+  badge = "GEMINI + GEN AI SDK + MCP RUNTIME",
   children,
 }) => {
   return (

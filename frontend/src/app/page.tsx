@@ -10,9 +10,11 @@ import {
 import {
   fetchProductionHealth,
   fetchActiveIncidents,
+  fetchRuntimeInfo,
   resetDemoState,
   type ProductionHealth as HealthData,
   type ActiveIncident,
+  type RuntimeInfo,
 } from "@/lib/api";
 import { MOCK_HEALTH, MOCK_INCIDENTS } from "@/lib/mockData";
 import { DemoTimeline } from "@/components/demo";
@@ -21,6 +23,7 @@ import { VideoModal } from "@/components/video";
 export default function Home() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [incidents, setIncidents] = useState<ActiveIncident[]>([]);
+  const [runtime, setRuntime] = useState<RuntimeInfo | null>(null);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [showTimeline, setShowTimeline] = useState(true);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
@@ -31,13 +34,15 @@ export default function Home() {
 
     async function load() {
       try {
-        const [h, inc] = await Promise.all([
+        const [h, inc, runtimeInfo] = await Promise.all([
           fetchProductionHealth(),
           fetchActiveIncidents(),
+          fetchRuntimeInfo(),
         ]);
         if (!cancelled) {
           setHealth(h);
           setIncidents(inc);
+          setRuntime(runtimeInfo);
           setIsDemoMode(false);
         }
       } catch (err) {
@@ -93,6 +98,11 @@ export default function Home() {
         onReset={handleReset}
         resetting={resetting}
         showTimeline={showTimeline}
+        runtimeLabel={
+          runtime?.mode === "LIVE_GEMINI"
+            ? "LIVE GEMINI + MCP STDIO"
+            : "RECORDED REPLAY"
+        }
       />
 
       <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
@@ -132,7 +142,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-white/5 py-4 text-center text-[10px] text-zinc-600">
-        Agentic FilmOps — Powered by Gemini + Google ADK + MCP
+        Agentic FilmOps — Powered by Gemini + MCP
       </footer>
 
       {/* Demo Timeline Overlay (Issue #27) */}

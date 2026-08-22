@@ -25,19 +25,16 @@ Equipment/Location/Crew rate fields — see that function's own docstring.
 This Agent's job is to call it once per candidate and assemble the results;
 no natural-language interpretation or judgment call happens here. The
 downstream consumer that performs "Real" reasoning over the assembled
-figures is the Orchestrator (#9, unimplemented) at its "Evaluate
+figures is the Orchestrator at its "Evaluate
 alternatives" step (SPEC §6.1) — this Agent's `BudgetAgentResult` is that
 step's input, not a place where interpretation already happened. Any
 future interpretive cost narrative (e.g. Explainability text, SPEC §9.8)
 is new scope for a follow-up issue.
 
-Transport note (SPEC §5 "Transport & Invocation"): each MCP server is meant
-to run as its own subprocess, reached over the stdio transport — the
-backend has no shared MCP client for that yet. This Agent calls the Budget
-MCP tool functions in-process instead (same documented shortcut as Actor/
-Script/Weather Agent). `BudgetMCPPort` isolates that choice behind a narrow
-interface so swapping in a real stdio-backed client later is a one-adapter
-change.
+Transport note (SPEC §5 "Transport & Invocation"): production adapts the
+lifespan-owned stdio `MCPClient` to `BudgetMCPPort`. Explicit replay and unit
+tests may use the in-process port, preserving the same consumer-owned
+interface and validated result models.
 """
 
 from collections.abc import Callable
@@ -46,6 +43,7 @@ from typing import Any, Protocol
 from pydantic import BaseModel, model_validator
 
 from app.events import AgentEvent, AnalysisEventBus, default_event_bus
+from app.mcp_client import MCPClient
 from app.mcp_servers.budget import estimate_change_cost as _estimate_change_cost
 from app.mcp_servers.budget import get_current_budget as _get_current_budget
 
@@ -131,8 +129,9 @@ class BudgetMCPPort(Protocol):
 
 
 class _InProcessBudgetMCP:
-    """Default `BudgetMCPPort`: calls the Budget MCP tool functions directly
-    in-process (see module docstring's Transport note). Calls with keyword
+    """Explicit replay/test port calling Budget MCP functions in-process.
+
+    Calls with keyword
     arguments throughout — `MCPCommonServer.tool()` reads its `resource_arg`
     via `kwargs.get(...)`, so a positional call would silently emit
     `MCPCallEvent`s with `resource=None`."""
@@ -158,6 +157,32 @@ class _InProcessBudgetMCP:
 _default_mcp = _InProcessBudgetMCP()
 
 
+class _ClientBudgetMCP:
+    def __init__(self, client: MCPClient) -> None:
+        self._client = client
+
+    async def get_current_budget(self) -> dict[str, Any]:
+        return await self._client.call("budget", "get_current_budget", {})
+
+    async def estimate_change_cost(
+        self,
+        scene_id: str,
+        new_location_id: str | None,
+        new_start: str | None,
+        new_end: str | None,
+    ) -> dict[str, Any]:
+        return await self._client.call(
+            "budget",
+            "estimate_change_cost",
+            {
+                "scene_id": scene_id,
+                "new_location_id": new_location_id,
+                "new_start": new_start,
+                "new_end": new_end,
+            },
+        )
+
+
 async def evaluate_cost_impact(
     scene_id: str,
     candidates: list[CandidateOption],
@@ -165,6 +190,7 @@ async def evaluate_cost_impact(
     analysis_id: str,
     event_bus: AnalysisEventBus | None = None,
     mcp: BudgetMCPPort | None = None,
+    mcp_client: MCPClient | None = None,
 ) -> BudgetAgentResult:
     """SPEC §6.3 flow (Budget Agent, adapted per this module's docstring):
     fetch the current production budget, then `estimate_change_cost()` once
@@ -182,7 +208,9 @@ async def evaluate_cost_impact(
     snapshot alone is a legitimate result (`options` is simply empty).
     """
     bus = event_bus or default_event_bus
-    mcp_client = mcp or _default_mcp
+    if mcp is not None and mcp_client is not None:
+        raise ValueError("Pass either mcp or mcp_client, not both")
+    budget_mcp = mcp or (_ClientBudgetMCP(mcp_client) if mcp_client else _default_mcp)
 
     def publish(status: str, message: str, *, type: str) -> None:
         bus.publish(
@@ -200,7 +228,7 @@ async def evaluate_cost_impact(
 
     try:
         budget_raw, candidate_raws = await _fetch_cost_estimates(
-            mcp_client, scene_id, candidates, publish
+            budget_mcp, scene_id, candidates, publish
         )
     except Exception as exc:
         publish("FAILED", str(exc), type="STATUS")

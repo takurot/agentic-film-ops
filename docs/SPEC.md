@@ -107,7 +107,7 @@ Manager      Rental       Location     Cost DB
                     ┌───────────▼───────────┐
                     │ PRODUCTION            │
                     │ ORCHESTRATOR          │
-                    │ Gemini + Google ADK   │
+                    │ Gemini + Gen AI SDK   │
                     └───────────┬───────────┘
                                 │
                            MCP Layer
@@ -953,7 +953,7 @@ Backend
 
 AI
  ├─ Gemini
- └─ Google ADK (Agent Development Kit)
+ └─ Google Gen AI SDK
 
 Agent
  ├─ Production Orchestrator
@@ -994,7 +994,7 @@ Production Dashboard → Weather incident → Orchestrator → Actor/Equipment/L
 
 | サブフェーズ | 性質 | 含まれる作業 | 並行度 |
 | --- | --- | --- | --- |
-| **1.1 Foundations** | 直列・クリティカルパス。ここが終わるまで他は本格着手できない | プロジェクト雛形、デプロイ方針決定、MCP transport/共通基盤、Dashboard↔Orchestrator API契約、Gemini信頼性（認証/バージョン固定/フォールバック）、Production Resource Graph データモデル＋Scene 42シード | 低（最優先で潰す） |
+| **1.1 Foundations** | 直列・クリティカルパス。ここが終わるまで他は本格着手できない | プロジェクト雛形、デプロイ方針決定、MCP transport/共通基盤、Dashboard↔Orchestrator API契約、Gemini信頼性（認証/バージョン固定/fail-closed）、Production Resource Graph データモデル＋Scene 42シード | 低（最優先で潰す） |
 | **1.2 MCP Servers** | 1.1完了後に着手可能。ドメインごとに独立 | Weather / Script / Actor / Equipment / Location / Budget の各MCPサーバー（[5章](#5-mcp-サーバー仕様)、共通基盤は上表1.1の Transport & Invocation に準拠） | 高（最大6人が同時並行可能） |
 | **1.3 Domain Agents** | 対応する1.2のMCPサーバーが揃い次第、ドメインごとに独立して着手可能 | Weather / Script / Actor / Equipment / Location / Budget の各Agent（[6章](#6-agent-仕様)） | 高（最大6人が同時並行可能） |
 | **1.4 Orchestration & Solver** | 1.3の出力を統合する層。性質上ここは直列にならざるを得ない | Production Orchestrator（[6.1](#61-production-orchestrator)）、Schedule Agent + Constraint Solver（[6.6](#66-schedule-agent)） | 低 |

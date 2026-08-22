@@ -110,6 +110,21 @@ def test_health_reports_total_scenes_and_active_incidents(api_client):
     assert body["today_scenes"][2]["status"] == "SHOOTING"
 
 
+def test_runtime_metadata_reports_the_backend_runtime(api_client):
+    client, _engine = api_client
+
+    response = client.get("/api/runtime")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "mode": "RECORDED_REPLAY",
+        "reasoning_provider": "recorded-fixture",
+        "model": None,
+        "mcp_transport": "in-process",
+        "adk_enabled": False,
+    }
+
+
 def test_active_incidents_lists_only_unresolved(api_client):
     client, engine = api_client
     seed_incident(engine)

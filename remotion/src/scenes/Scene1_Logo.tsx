@@ -66,7 +66,7 @@ export const Scene1_Logo: React.FC = () => {
         >
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
           <span className="font-mono text-xs font-bold text-emerald-300 tracking-widest uppercase">
-            Gemini 2.5 • Google ADK • Model Context Protocol (MCP)
+            Gemini 2.5 • Google Gen AI SDK • Model Context Protocol (MCP)
           </span>
         </div>
       </div>

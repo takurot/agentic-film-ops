@@ -38,6 +38,10 @@ class GeminiUnavailableError(Exception):
     """
 
 
+class GeminiResponseValidationError(Exception):
+    """Gemini returned content that does not satisfy a consumer schema."""
+
+
 @dataclass
 class GeminiConfig:
     model: str = field(default_factory=lambda: os.environ.get("GEMINI_MODEL", DEFAULT_MODEL))
@@ -61,11 +65,11 @@ class GeminiClient:
         elif self.config.api_key:
             self._client = genai.Client(api_key=self.config.api_key)
         else:
-            raise RuntimeError(
-                "GEMINI_API_KEY is not set. See README 'Gemini setup' for how to configure it."
-            )
+            self._client = None
 
     async def generate_content(self, contents: str) -> GenerateContentResponse:
+        if self._client is None:
+            raise GeminiUnavailableError("GEMINI_NOT_CONFIGURED")
         last_exc: Exception | None = None
 
         for attempt in range(self.config.max_retries + 1):
@@ -86,15 +90,14 @@ class GeminiClient:
             if attempt < self.config.max_retries:
                 await asyncio.sleep(self.config.retry_backoff_seconds)
 
-        raise GeminiUnavailableError(
-            f"Gemini call failed after {self.config.max_retries + 1} attempt(s): {last_exc}"
-        ) from last_exc
+        raise GeminiUnavailableError("GEMINI_UNAVAILABLE") from last_exc
 
 
 __all__ = [
     "DEFAULT_MODEL",
     "GeminiClient",
     "GeminiConfig",
+    "GeminiResponseValidationError",
     "GeminiUnavailableError",
     "with_min_display_time",
 ]

@@ -1,17 +1,10 @@
 """Equipment Agent (SPEC §6.3): reasoning layer over the Equipment MCP
 (SPEC §5.2).
 
-Agent = Reasoning, MCP = Access (SPEC §3.3): this module calls only
-`app.mcp_servers.equipment`'s tool functions for all equipment data/state —
-it never imports `app.db`/`app.models` directly (statically verified by
-`tests/test_equipment_agent.py`'s import check, covering the Issue #11
-Acceptance Criterion "Uses Equipment MCP exclusively for access/action").
-
-Like `agents/actor.py` (Issue #10), this Agent calls
-`app.mcp_servers.equipment`'s tool functions in-process rather than over a
-real MCP stdio subprocess — a deliberate, documented MVP shortcut (see
-`actor.py`'s docstring for the full rationale), not a violation of Agent/MCP
-role separation.
+Agent = Reasoning, MCP = Access (SPEC §3.3): all equipment data/state flows
+through the injected `MCPClient`. `LIVE_GEMINI` supplies the lifespan-owned
+stdio client; explicit replay and unit tests use the registered in-process
+adapter. This module never imports `app.db`/`app.models` directly.
 
 **Difference from Actor Agent's wait pattern**: Equipment MCP's
 `get_vendor_response()` is *not* an elapsed-time-gated pending state like
@@ -67,8 +60,13 @@ from typing import Any, Literal
 from pydantic import BaseModel, ValidationError
 
 from app.events import AgentEvent, AgentEventStatus, AnalysisEventBus, default_event_bus
-from app.gemini_client import GeminiClient, GeminiUnavailableError, with_min_display_time
-from app.mcp_servers import equipment as equipment_mcp
+from app.gemini_client import (
+    GeminiClient,
+    GeminiResponseValidationError,
+    GeminiUnavailableError,
+    with_min_display_time,
+)
+from app.mcp_client import InProcessMCPClient, MCPClient
 
 AGENT_NAME = "EquipmentAgent"
 
@@ -155,10 +153,12 @@ class EquipmentAgent:
         gemini_client: GeminiClient,
         config: EquipmentAgentConfig | None = None,
         event_bus: AnalysisEventBus | None = None,
+        mcp_client: MCPClient | None = None,
     ) -> None:
         self._gemini = gemini_client
         self._config = config or EquipmentAgentConfig()
         self._event_bus = event_bus or default_event_bus
+        self._mcp = mcp_client or InProcessMCPClient()
 
     async def resolve_reservation(
         self,
@@ -245,8 +245,10 @@ class EquipmentAgent:
             "EQUIPMENT_RESERVATION",
             f"Checking {equipment_id} inventory",
         )
-        return await equipment_mcp.check_availability(
-            equipment_id=equipment_id, start=requested_start, end=requested_end
+        return await self._mcp.call(
+            "equipment",
+            "check_availability",
+            {"equipment_id": equipment_id, "start": requested_start, "end": requested_end},
         )
 
     async def _decide_request_kind(
@@ -273,7 +275,7 @@ class EquipmentAgent:
             "EQUIPMENT_RESERVATION",
             f"Checking {equipment_id}'s existing bookings",
         )
-        info = await equipment_mcp.get_equipment(equipment_id=equipment_id)
+        info = await self._mcp.call("equipment", "get_equipment", {"equipment_id": equipment_id})
         existing = next((b for b in info["availability"] if b.get("scene_id") == scene_id), None)
 
         self._publish(
@@ -310,15 +312,25 @@ class EquipmentAgent:
             f"Contacting {vendor} about {equipment_id}",
         )
         if request_kind == "extension":
-            ack = await equipment_mcp.request_extension(
-                equipment_id=equipment_id, scene_id=scene_id, new_end=requested_end
+            ack = await self._mcp.call(
+                "equipment",
+                "request_extension",
+                {
+                    "equipment_id": equipment_id,
+                    "scene_id": scene_id,
+                    "new_end": requested_end,
+                },
             )
         else:
-            ack = await equipment_mcp.request_reservation(
-                equipment_id=equipment_id,
-                scene_id=scene_id,
-                start=requested_start,
-                end=requested_end,
+            ack = await self._mcp.call(
+                "equipment",
+                "request_reservation",
+                {
+                    "equipment_id": equipment_id,
+                    "scene_id": scene_id,
+                    "start": requested_start,
+                    "end": requested_end,
+                },
             )
 
         self._publish(
@@ -328,7 +340,9 @@ class EquipmentAgent:
             "EXTERNAL_REQUEST",
             f"Awaiting {vendor}'s response for {equipment_id}",
         )
-        response = await equipment_mcp.get_vendor_response(request_id=ack["request_id"])
+        response = await self._mcp.call(
+            "equipment", "get_vendor_response", {"request_id": ack["request_id"]}
+        )
 
         self._publish(
             analysis_id,
@@ -362,8 +376,8 @@ class EquipmentAgent:
         try:
             data = json.loads(_strip_code_fence(text))
             return VendorResponseSummary(**data).summary
-        except (json.JSONDecodeError, ValidationError, TypeError):
-            return reason
+        except (json.JSONDecodeError, ValidationError, TypeError) as exc:
+            raise GeminiResponseValidationError("GEMINI_RESPONSE_INVALID") from exc
 
     async def _apply_reservation(
         self,
@@ -382,11 +396,15 @@ class EquipmentAgent:
             "EQUIPMENT_RESERVATION",
             f"Reserving {equipment_id} for {scene_id}",
         )
-        return await equipment_mcp.reserve_equipment(
-            equipment_id=equipment_id,
-            scene_id=scene_id,
-            start=requested_start,
-            end=requested_end,
+        return await self._mcp.call(
+            "equipment",
+            "reserve_equipment",
+            {
+                "equipment_id": equipment_id,
+                "scene_id": scene_id,
+                "start": requested_start,
+                "end": requested_end,
+            },
         )
 
     def _failure_message(self, exc: Exception) -> str:
@@ -394,7 +412,7 @@ class EquipmentAgent:
         provider/exception internals (e.g. a wrapped Gemini API error) to
         it — only our own, already-sanitized error messages (e.g.
         `mcp_servers.equipment`'s `f"Unknown equipment_id: {equipment_id}"`)."""
-        if isinstance(exc, GeminiUnavailableError):
+        if isinstance(exc, (GeminiUnavailableError, GeminiResponseValidationError)):
             return "Equipment Agent failed: Gemini is unavailable"
         return f"Equipment Agent failed: {exc}"
 

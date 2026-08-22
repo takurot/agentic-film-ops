@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from app.events import AgentEvent, AgentEventStatus, AnalysisEventBus, default_event_bus
 from app.gemini_client import (
     GeminiClient,
-    GeminiUnavailableError,
+    GeminiResponseValidationError,
     with_min_display_time,
 )
 from app.latency import get_latency_config
@@ -493,17 +493,16 @@ class ScheduleAgent:
             alternatives_text=alts_text or "None",
         )
 
-        try:
-            latency_cfg = get_latency_config().schedule
-            min_secs = latency_cfg.get_delay("option_generation")
-            response = await with_min_display_time(
-                self._gemini.generate_content(prompt),
-                min_seconds=min_secs,
-            )
-            text = (response.text or "").strip()
-            return text if text else fallback_text
-        except (GeminiUnavailableError, RuntimeError, ValueError, TimeoutError):
-            return fallback_text
+        latency_cfg = get_latency_config().schedule
+        min_secs = latency_cfg.get_delay("option_generation")
+        response = await with_min_display_time(
+            self._gemini.generate_content(prompt),
+            min_seconds=min_secs,
+        )
+        text = (response.text or "").strip()
+        if not text:
+            raise GeminiResponseValidationError("GEMINI_RESPONSE_INVALID")
+        return text
 
     def _publish(
         self,
