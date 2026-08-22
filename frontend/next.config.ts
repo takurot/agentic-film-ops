@@ -1,11 +1,8 @@
 import type { NextConfig } from "next";
-import { resolvePublicRuntimeConfig } from "./src/lib/runtimeConfig";
+import { getPublicRuntimeConfig } from "./src/lib/runtimeConfig";
 
-resolvePublicRuntimeConfig({
-  mode: process.env.NEXT_PUBLIC_FILMOPS_MODE,
-  apiUrl: process.env.NEXT_PUBLIC_API_URL,
-  production: process.env.NODE_ENV === "production",
-});
+// Fail fast before Next.js can produce an export with an invalid runtime profile.
+getPublicRuntimeConfig();
 
 const nextConfig: NextConfig = {
   output: "export",

@@ -129,7 +129,7 @@ async function requestJson<T>(url: string, init: RequestInit, parse: (value: unk
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
   const signal = init.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
   const response = await fetch(url, { ...init, signal });
-  if (!response.ok) throw new Error("BACKEND_UNAVAILABLE");
+  if (!response.ok) throw new Error(`BACKEND_UNAVAILABLE:${response.status}`);
   const declaredLength = Number(response.headers.get("content-length"));
   if (Number.isFinite(declaredLength) && declaredLength > MAX_RESPONSE_BYTES) {
     await response.body?.cancel("response too large");
@@ -141,7 +141,10 @@ async function requestJson<T>(url: string, init: RequestInit, parse: (value: unk
     const parsed = parse(value);
     if (parsed === null) throw new Error("INVALID_BACKEND_RESPONSE");
     return parsed;
-  } catch {
+  } catch (error) {
+    const errorName = error && typeof error === "object" && "name" in error ? error.name : null;
+    if (errorName === "AbortError" || errorName === "TimeoutError") throw error;
+    if (error instanceof Error && error.message === "INVALID_BACKEND_RESPONSE") throw error;
     throw new Error("INVALID_BACKEND_RESPONSE");
   }
 }
@@ -244,19 +247,17 @@ export function createLiveApiClient(config: PublicRuntimeConfig): LiveApiClient 
   return {
     apiBase: base,
     fetchRuntimeInfo: (signal) => requestJson(`${base}/api/runtime`, { signal, cache: "no-store" }, parseRuntime),
-    fetchProductionHealth: (signal) => requestJson(`${base}/api/production/health`, { signal }, parseHealth),
-    fetchActiveIncidents: (signal) => requestJson(`${base}/api/incidents/active`, { signal }, parseIncidents),
+    fetchProductionHealth: (signal) => requestJson(`${base}/api/production/health`, { signal, cache: "no-store" }, parseHealth),
+    fetchActiveIncidents: (signal) => requestJson(`${base}/api/incidents/active`, { signal, cache: "no-store" }, parseIncidents),
     startAnalysis: (incidentId, signal) => requestJson(`${base}/api/incidents/${encodeURIComponent(incidentId)}/analyze`, { method: "POST", signal }, parseAnalysisId, 180_000),
-    fetchAnalysis: (analysisId, signal) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}`, { signal }, parseAnalysis),
+    fetchAnalysis: (analysisId, signal) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}`, { signal, cache: "no-store" }, parseAnalysis),
     submitDecision: (analysisId, decision, optionId, signal) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}/decision`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(optionId ? { decision, option_id: optionId } : { decision }),
       signal,
     }, parseAnalysis, 180_000),
-    fetchExecution: (analysisId, signal) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}/execution`, { signal }, parseExecution),
+    fetchExecution: (analysisId, signal) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}/execution`, { signal, cache: "no-store" }, parseExecution),
     resetDemoState: (signal) => requestJson(`${base}/api/demo/reset`, { method: "POST", signal }, parseReset),
   };
 }
-
-/* ─── Fetchers ─── */

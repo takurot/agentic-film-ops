@@ -11,7 +11,7 @@ describe("explicit API client", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(health)));
     const client = createLiveApiClient({ mode: "LIVE_GEMINI", apiBase: "https://api.example.test" });
     await client.fetchProductionHealth();
-    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/api/production/health", { signal: expect.any(AbortSignal) });
+    expect(fetchMock).toHaveBeenCalledWith("https://api.example.test/api/production/health", { signal: expect.any(AbortSignal), cache: "no-store" });
   });
   it("encodes decision endpoints and bodies", async () => {
     const analysis = { analysis_id: "AN/1", incident_id: "INC-1", status: "COMPLETED", options: [], explainability: null, decision: "APPROVE", decided_option_id: "OPT-A", execution_status: "COMPLETED" };
@@ -48,7 +48,14 @@ describe("explicit API client", () => {
   it("returns a stable error without leaking response content", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("secret detail", { status: 500 }));
     const client = createLiveApiClient({ mode: "LIVE_GEMINI", apiBase: "https://api.example.test" });
-    await expect(client.fetchRuntimeInfo()).rejects.toThrow("BACKEND_UNAVAILABLE");
+    await expect(client.fetchRuntimeInfo()).rejects.toThrow("BACKEND_UNAVAILABLE:500");
+  });
+  it("preserves cancellation instead of misclassifying it as an invalid payload", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(new ReadableStream({
+      pull(controller) { controller.error(new DOMException("aborted", "AbortError")); },
+    })));
+    const client = createLiveApiClient({ mode: "LIVE_GEMINI", apiBase: "https://api.example.test" });
+    await expect(client.fetchRuntimeInfo()).rejects.toMatchObject({ name: "AbortError" });
   });
   it.each([
     { name: "chunked", headers: undefined, chunks: [new Uint8Array(600_000), new Uint8Array(600_000)] },

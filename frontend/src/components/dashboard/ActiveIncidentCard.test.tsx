@@ -40,7 +40,7 @@ describe("ActiveIncidentCard runtime profiles", () => {
     const client = { startAnalysis: vi.fn().mockRejectedValue(new Error("offline")) } as unknown as LiveApiClient;
     render(<ActiveIncidentCard incident={incident} runtimeMode="LIVE_GEMINI" client={client} />);
     fireEvent.click(screen.getByRole("button", { name: /start ai impact analysis/i }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("BACKEND_UNAVAILABLE"));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveAttribute("data-error-code", "BACKEND_UNAVAILABLE"));
     expect(screen.queryByText(/human approval required/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/incident resolved/i)).not.toBeInTheDocument();
   });
@@ -79,7 +79,7 @@ describe("ActiveIncidentCard runtime profiles", () => {
     const client = liveClient({ fetchAnalysis: vi.fn().mockResolvedValue({ ...MOCK_ANALYSIS, analysis_id: "AN-LIVE", status: "FAILED", options: [] }) });
     render(<ActiveIncidentCard incident={incident} runtimeMode="LIVE_GEMINI" client={client} />);
     fireEvent.click(screen.getByRole("button", { name: /start ai impact analysis/i }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("ANALYSIS_FAILED");
+    expect(await screen.findByRole("alert")).toHaveAttribute("data-error-code", "ANALYSIS_FAILED");
     expect(screen.queryByText(/human approval required/i)).not.toBeInTheDocument();
     expect(screen.queryByTestId("before-after-summary")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /retry analysis/i })).toBeInTheDocument();

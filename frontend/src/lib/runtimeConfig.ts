@@ -33,6 +33,9 @@ export function resolvePublicRuntimeConfig({
   if (url.username || url.password || url.search || url.hash) {
     throw new Error("NEXT_PUBLIC_API_URL must not contain credentials, query, or fragment");
   }
+  // Normalize IPv6 brackets and fully-qualified trailing dots. URL implementations
+  // may serialize IPv4-mapped IPv6 in dotted or canonical hex form, so both
+  // ::ffff prefixes below are required to cover the full 127.0.0.0/8 range.
   const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.+$/, "");
   const isLoopback =
     hostname === "localhost" ||

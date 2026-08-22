@@ -19,6 +19,32 @@ import {
 } from "@/lib/mockData";
 
 const MAX_EVENTS = 200;
+type IncidentErrorCode = "ANALYSIS_FAILED" | "BACKEND_TIMEOUT" | "BACKEND_UNAVAILABLE" | "EXECUTION_UNAVAILABLE" | "INVALID_BACKEND_RESPONSE" | "INVALID_EVENT_STREAM" | "REQUEST_REJECTED";
+const ERROR_MESSAGES: Record<IncidentErrorCode, string> = {
+  ANALYSIS_FAILED: "The AI analysis did not complete. Retry the analysis.",
+  BACKEND_TIMEOUT: "The Live backend timed out. Retry when the service is responsive.",
+  BACKEND_UNAVAILABLE: "The Live backend is unavailable. Retry the operation.",
+  EXECUTION_UNAVAILABLE: "Approval succeeded, but execution status is unavailable. Retry status retrieval.",
+  INVALID_BACKEND_RESPONSE: "The Live backend returned an invalid response. Retry or verify the deployment.",
+  INVALID_EVENT_STREAM: "The Live event stream was invalid. Retry the event stream.",
+  REQUEST_REJECTED: "The Live backend rejected this operation. Refresh the dashboard before retrying.",
+};
+
+function classifyError(error: unknown): IncidentErrorCode {
+  if (!(error instanceof Error)) return "BACKEND_UNAVAILABLE";
+  if (error.name === "TimeoutError") return "BACKEND_TIMEOUT";
+  if (error.message === "INVALID_BACKEND_RESPONSE") return "INVALID_BACKEND_RESPONSE";
+  if (/^BACKEND_UNAVAILABLE:4\d\d$/.test(error.message)) return "REQUEST_REJECTED";
+  return "BACKEND_UNAVAILABLE";
+}
+
+function resolvePhase(isResolved: boolean, analysis: AnalysisData | null, analyzing: boolean): ResolutionPhase {
+  if (isResolved) return "RESOLVED";
+  if (analysis?.status === "COMPLETED" && !analysis.decision) return "OPTIONS";
+  if (analysis?.status === "FAILED") return "ALERT";
+  if (analyzing || analysis) return "ANALYZING";
+  return "ALERT";
+}
 
 /**
  * ActiveIncidentCard – Weather risk alert with AI analysis,
@@ -57,11 +83,7 @@ export function ActiveIncidentCard({
 
     const streamUrl = `${client.apiBase}/api/analyses/${encodeURIComponent(analysis.analysis_id)}/events/stream`;
     const unsubscribe = connectEventStream(streamUrl, (event) => {
-      setEvents((prev) => {
-        const key = JSON.stringify(event);
-        if (prev.some((item) => JSON.stringify(item) === key)) return prev;
-        return [...prev, event].slice(-MAX_EVENTS);
-      });
+      setEvents((prev) => [...prev, event].slice(-MAX_EVENTS));
     }, { onStateChange: setStreamState, onProtocolError: () => setError("INVALID_EVENT_STREAM") });
 
     return () => {
@@ -91,15 +113,14 @@ export function ActiveIncidentCard({
     }
     let operation: AbortController | null = null;
     try {
-      if (!client) throw new Error("BACKEND_UNAVAILABLE");
       operation = beginOperation();
       const { analysis_id } = await client.startAnalysis(incident.incident_id, operation.signal);
       const analysisData = await client.fetchAnalysis(analysis_id, operation.signal);
       if (operationController.current !== operation) return;
       setAnalysis(analysisData);
       if (analysisData.status === "FAILED") setError("ANALYSIS_FAILED");
-    } catch {
-      if (operation && operationController.current === operation) setError("BACKEND_UNAVAILABLE");
+    } catch (caught) {
+      if (operation && operationController.current === operation) setError(classifyError(caught));
     } finally {
       if (!operation || operationController.current === operation) setAnalyzing(false);
     }
@@ -122,7 +143,6 @@ export function ActiveIncidentCard({
     }
     let operation: AbortController | null = null;
     try {
-      if (!client) throw new Error("BACKEND_UNAVAILABLE");
       operation = beginOperation();
       const updated = await client.submitDecision(analysis.analysis_id, "APPROVE", optionId, operation.signal);
       if (operationController.current !== operation) return;
@@ -138,8 +158,8 @@ export function ActiveIncidentCard({
           setError("EXECUTION_UNAVAILABLE");
         }
       }
-    } catch {
-      if (operation && operationController.current === operation) setError("BACKEND_UNAVAILABLE");
+    } catch (caught) {
+      if (operation && operationController.current === operation) setError(classifyError(caught));
     } finally {
       if (!operation || operationController.current === operation) setIsSubmitting(false);
     }
@@ -160,13 +180,12 @@ export function ActiveIncidentCard({
     }
     let operation: AbortController | null = null;
     try {
-      if (!client) throw new Error("BACKEND_UNAVAILABLE");
       operation = beginOperation();
       const updated = await client.submitDecision(analysis.analysis_id, "REJECT", undefined, operation.signal);
       if (operationController.current !== operation) return;
       setAnalysis(updated);
-    } catch {
-      if (operation && operationController.current === operation) setError("BACKEND_UNAVAILABLE");
+    } catch (caught) {
+      if (operation && operationController.current === operation) setError(classifyError(caught));
     } finally {
       if (!operation || operationController.current === operation) setIsSubmitting(false);
     }
@@ -193,13 +212,7 @@ export function ActiveIncidentCard({
   const isResolved = incident.resolved || execution?.status === "COMPLETED";
   const isRejected = analysis?.decision === "REJECT";
 
-  const currentPhase: ResolutionPhase = isResolved
-    ? "RESOLVED"
-    : analysis?.status === "COMPLETED" && !analysis.decision
-    ? "OPTIONS"
-    : analyzing || analysis
-    ? "ANALYZING"
-    : "ALERT";
+  const currentPhase = resolvePhase(isResolved, analysis, analyzing);
 
   return (
     <section
@@ -260,8 +273,8 @@ export function ActiveIncidentCard({
       </div>
 
       {error && (
-        <div role="alert" className="mt-3 rounded border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300">
-          {error}. Retry the operation.
+        <div role="alert" data-error-code={error} className="mt-3 rounded border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300">
+          {ERROR_MESSAGES[error as IncidentErrorCode] ?? ERROR_MESSAGES.BACKEND_UNAVAILABLE}
         </div>
       )}
       {analysis?.status === "FAILED" && (
@@ -292,7 +305,7 @@ export function ActiveIncidentCard({
       {/* Live Coordination, Activity Monitor & Communication Views */}
       {(analysis || analyzing) && (
         <div id="agent-orchestration-section" className="mt-6 space-y-4">
-          {runtimeMode === "LIVE_GEMINI" && streamState && <div className="flex items-center gap-2"><p className="text-[10px] font-mono text-zinc-400" role="status">EVENT STREAM: {streamState}</p>{streamState === "FAILED" && <button type="button" onClick={() => setStreamGeneration((value) => value + 1)} className="text-[10px] font-bold text-cyan-300 underline">Retry event stream</button>}</div>}
+          {runtimeMode === "LIVE_GEMINI" && streamState && <div className="flex items-center gap-2"><p className="text-[10px] font-mono text-zinc-400" role="status">EVENT STREAM: {streamState}</p>{streamState === "FAILED" && <button type="button" onClick={() => { setError(null); setStreamGeneration((value) => value + 1); }} className="text-[10px] font-bold text-cyan-300 underline">Retry event stream</button>}</div>}
           {/* Resource Network View (SPEC §9.4 Flagship Screen) */}
           <ResourceNetworkView events={events} />
 
