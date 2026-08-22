@@ -5,9 +5,17 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:replay": "cross-env NEXT_PUBLIC_FILMOPS_MODE=RECORDED_REPLAY next build",
+    "build:live-test": "cross-env NEXT_PUBLIC_FILMOPS_MODE=LIVE_GEMINI NEXT_PUBLIC_API_URL=https://api.example.test next build",
+    "serve:export": "http-server out -p 4173 -c-1",
+    "test:e2e:replay": "npm run build:replay && playwright test e2e/replay.spec.ts",
+    "test:e2e:public": "cross-env PLAYWRIGHT_BASE_URL=https://takurot0708.web.app playwright test e2e/replay.spec.ts",
+    "test:e2e:live": "npm run build:live-test && playwright test e2e/live-offline.spec.ts",
+    "test:build-config": "node scripts/verify-build-config.mjs",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "next": "16.3.0",
@@ -16,6 +24,7 @@
     "reactflow": "^11.11.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
@@ -23,8 +32,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/coverage-v8": "^4.1.11",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "http-server": "^14.1.1",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",
     "typescript": "^5",

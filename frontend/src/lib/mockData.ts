@@ -47,7 +47,7 @@ export const MOCK_INCIDENTS: ActiveIncident[] = [
     severity: "CRITICAL",
     detail:
       "Heavy rain forecasted (92% probability) during scheduled outdoor rooftop shoot on Shibuya Tower. Outdoor filming impossible without severe risk to camera rig and principal talent.",
-    detected_at: new Date().toISOString(),
+    detected_at: "2026-08-22T05:10:00Z",
     resolved: false,
   },
 ];
@@ -154,7 +154,7 @@ export const MOCK_EXECUTION: ExecutionData = {
 
 export const MOCK_STREAM_EVENTS: AnalysisEvent[] = [
   {
-    timestamp: new Date().toLocaleTimeString(),
+    timestamp: "2026-08-22T05:10:05Z",
     agent: "Weather Agent",
     type: "MCP_CALL",
     server: "weather_mcp",
@@ -164,7 +164,7 @@ export const MOCK_STREAM_EVENTS: AnalysisEvent[] = [
     resource: "LOC-003",
   },
   {
-    timestamp: new Date().toLocaleTimeString(),
+    timestamp: "2026-08-22T05:10:12Z",
     agent: "Weather Agent",
     type: "MCP_CALL",
     server: "weather_mcp",
@@ -174,7 +174,7 @@ export const MOCK_STREAM_EVENTS: AnalysisEvent[] = [
     resource: "LOC-003",
   },
   {
-    timestamp: new Date().toLocaleTimeString(),
+    timestamp: "2026-08-22T05:10:20Z",
     agent: "Script Agent",
     type: "AGENT_REASONING",
     status: "ANALYZING",
@@ -182,7 +182,7 @@ export const MOCK_STREAM_EVENTS: AnalysisEvent[] = [
     resource: "SC-042",
   },
   {
-    timestamp: new Date().toLocaleTimeString(),
+    timestamp: "2026-08-22T05:10:28Z",
     agent: "Location Agent",
     type: "MCP_CALL",
     server: "location_mcp",
@@ -192,7 +192,7 @@ export const MOCK_STREAM_EVENTS: AnalysisEvent[] = [
     resource: "LOC-STUDIO-B",
   },
   {
-    timestamp: new Date().toLocaleTimeString(),
+    timestamp: "2026-08-22T05:10:35Z",
     agent: "Actor Agent",
     type: "AGENT_REASONING",
     status: "RESPONSE_RECEIVED",
@@ -200,7 +200,7 @@ export const MOCK_STREAM_EVENTS: AnalysisEvent[] = [
     resource: "ACT-001",
   },
   {
-    timestamp: new Date().toLocaleTimeString(),
+    timestamp: "2026-08-22T05:10:42Z",
     agent: "Equipment Agent",
     type: "MCP_CALL",
     server: "equipment_mcp",
@@ -210,7 +210,7 @@ export const MOCK_STREAM_EVENTS: AnalysisEvent[] = [
     resource: "EQ-001",
   },
   {
-    timestamp: new Date().toLocaleTimeString(),
+    timestamp: "2026-08-22T05:10:49Z",
     agent: "Budget Agent",
     type: "AGENT_REASONING",
     status: "ANALYZING",
@@ -218,7 +218,7 @@ export const MOCK_STREAM_EVENTS: AnalysisEvent[] = [
     resource: "BUDGET",
   },
   {
-    timestamp: new Date().toLocaleTimeString(),
+    timestamp: "2026-08-22T05:10:56Z",
     agent: "Schedule Solver",
     type: "SOLVER_COMPLETION",
     status: "COMPLETED",

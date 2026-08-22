@@ -51,12 +51,15 @@ export interface DemoTimelineProps {
   /** Whether the timeline is visible */
   visible?: boolean;
   onClose?: () => void;
+  /** Render the timeline as recorded sample data rather than an active live feed. */
+  replay?: boolean;
 }
 
 export function DemoTimeline({
   elapsedSeconds,
   visible = true,
   onClose,
+  replay = false,
 }: DemoTimelineProps) {
   const [startTime] = useState(() => Date.now());
   // wallElapsed is only used when elapsedSeconds prop is not provided
@@ -103,8 +106,8 @@ export function DemoTimeline({
         className="fixed bottom-4 right-4 z-40 flex items-center gap-2.5 rounded-full border border-zinc-700 bg-zinc-950/95 px-4 py-2 shadow-2xl backdrop-blur-md transition-all hover:border-zinc-500 animate-fadeIn"
       >
         <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+          {!replay && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />}
+          <span className={`relative inline-flex h-2 w-2 rounded-full ${replay ? "bg-amber-400" : "bg-red-500"}`} />
         </span>
         <span className="font-mono text-xs font-bold text-zinc-200">
           {formatTime(displayElapsed)} / {formatTime(totalSeconds)}
@@ -146,11 +149,11 @@ export function DemoTimeline({
       <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-2.5">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+            {!replay && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />}
+            <span className={`relative inline-flex h-2 w-2 rounded-full ${replay ? "bg-amber-400" : "bg-red-500"}`} />
           </span>
           <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-100">
-            LIVE DEMO — AGENTIC FILMOPS
+            {replay ? "RECORDED REPLAY — AGENTIC FILMOPS" : "LIVE DEMO — AGENTIC FILMOPS"}
           </span>
         </div>
         <div className="flex items-center gap-2.5">

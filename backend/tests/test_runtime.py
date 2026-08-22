@@ -125,6 +125,7 @@ def test_runtime_metadata_endpoint_exposes_no_secret(monkeypatch) -> None:
         response = client.get("/api/runtime")
 
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
     payload = response.json()
     assert payload == {
         "mode": "RECORDED_REPLAY",

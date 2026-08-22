@@ -1,13 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { ActiveIncident, AnalysisData, ExecutionData } from "@/lib/api";
-import {
-  startAnalysis,
-  fetchAnalysis,
-  submitDecision,
-  fetchExecution,
-} from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import type { ActiveIncident, AnalysisData, ExecutionData, LiveApiClient } from "@/lib/api";
 import { ApprovalPanel, ExecutionChecklist } from "@/components/approval";
 import { BeforeAfterSummary } from "@/components/summary";
 import {
@@ -16,7 +10,7 @@ import {
   ExternalCommunicationMock,
 } from "@/components/live";
 import { ResourceNetworkView } from "@/components/network";
-import { connectEventStream, type AnalysisEvent } from "@/lib/eventStream";
+import { connectEventStream, type AnalysisEvent, type EventStreamState } from "@/lib/eventStream";
 import { PhaseStepIndicator, type ResolutionPhase } from "./PhaseStepIndicator";
 import {
   MOCK_ANALYSIS,
@@ -24,7 +18,33 @@ import {
   MOCK_STREAM_EVENTS,
 } from "@/lib/mockData";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const MAX_EVENTS = 200;
+type IncidentErrorCode = "ANALYSIS_FAILED" | "BACKEND_TIMEOUT" | "BACKEND_UNAVAILABLE" | "EXECUTION_UNAVAILABLE" | "INVALID_BACKEND_RESPONSE" | "INVALID_EVENT_STREAM" | "REQUEST_REJECTED";
+const ERROR_MESSAGES: Record<IncidentErrorCode, string> = {
+  ANALYSIS_FAILED: "The AI analysis did not complete. Retry the analysis.",
+  BACKEND_TIMEOUT: "The Live backend timed out. Retry when the service is responsive.",
+  BACKEND_UNAVAILABLE: "The Live backend is unavailable. Retry the operation.",
+  EXECUTION_UNAVAILABLE: "Approval succeeded, but execution status is unavailable. Retry status retrieval.",
+  INVALID_BACKEND_RESPONSE: "The Live backend returned an invalid response. Retry or verify the deployment.",
+  INVALID_EVENT_STREAM: "The Live event stream was invalid. Retry the event stream.",
+  REQUEST_REJECTED: "The Live backend rejected this operation. Refresh the dashboard before retrying.",
+};
+
+function classifyError(error: unknown): IncidentErrorCode {
+  if (!(error instanceof Error)) return "BACKEND_UNAVAILABLE";
+  if (error.name === "TimeoutError") return "BACKEND_TIMEOUT";
+  if (error.message === "INVALID_BACKEND_RESPONSE") return "INVALID_BACKEND_RESPONSE";
+  if (/^BACKEND_UNAVAILABLE:4\d\d$/.test(error.message)) return "REQUEST_REJECTED";
+  return "BACKEND_UNAVAILABLE";
+}
+
+function resolvePhase(isResolved: boolean, analysis: AnalysisData | null, analyzing: boolean): ResolutionPhase {
+  if (isResolved) return "RESOLVED";
+  if (analysis?.status === "COMPLETED" && !analysis.decision) return "OPTIONS";
+  if (analysis?.status === "FAILED") return "ALERT";
+  if (analyzing || analysis) return "ANALYZING";
+  return "ALERT";
+}
 
 /**
  * ActiveIncidentCard – Weather risk alert with AI analysis,
@@ -34,49 +54,75 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
  */
 export function ActiveIncidentCard({
   incident,
-}: {
-  incident: ActiveIncident;
-}) {
+  runtimeMode,
+  client,
+}: { incident: ActiveIncident } & (
+  | { runtimeMode: "LIVE_GEMINI"; client: LiveApiClient }
+  | { runtimeMode: "RECORDED_REPLAY"; client: null }
+)) {
   const [analyzing, setAnalyzing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [execution, setExecution] = useState<ExecutionData | null>(null);
   const [events, setEvents] = useState<AnalysisEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [streamState, setStreamState] = useState<EventStreamState | null>(null);
+  const [streamGeneration, setStreamGeneration] = useState(0);
+  const [executionRetryId, setExecutionRetryId] = useState<string | null>(null);
+  const operationController = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    const operation = operationController.current;
+    operationController.current = null;
+    operation?.abort();
+  }, []);
 
   // Subscribe to SSE stream whenever an analysis is created
   useEffect(() => {
-    if (!analysis?.analysis_id) return;
+    if (runtimeMode !== "LIVE_GEMINI" || !client || !analysis?.analysis_id || analysis.decision) return;
 
-    const streamUrl = `${API_BASE}/api/analyses/${analysis.analysis_id}/events/stream`;
+    const streamUrl = `${client.apiBase}/api/analyses/${encodeURIComponent(analysis.analysis_id)}/events/stream`;
     const unsubscribe = connectEventStream(streamUrl, (event) => {
-      setEvents((prev) => [...prev, event]);
-    });
+      setEvents((prev) => [...prev, event].slice(-MAX_EVENTS));
+    }, { onStateChange: setStreamState, onProtocolError: () => setError("INVALID_EVENT_STREAM") });
 
     return () => {
       unsubscribe();
     };
-  }, [analysis?.analysis_id]);
+  }, [analysis?.analysis_id, analysis?.decision, client, runtimeMode, streamGeneration]);
+
+  function beginOperation(): AbortController {
+    operationController.current?.abort();
+    const controller = new AbortController();
+    operationController.current = controller;
+    return controller;
+  }
 
   async function handleAnalyze() {
     setAnalyzing(true);
     setError(null);
     setEvents([]);
-    try {
-      const { analysis_id } = await startAnalysis(incident.incident_id);
-      const analysisData = await fetchAnalysis(analysis_id);
-      setAnalysis(analysisData);
-    } catch (err) {
-      console.warn("Backend analysis unavailable, using demo simulation:", err);
+    setAnalysis(null);
+    setExecution(null);
+    setExecutionRetryId(null);
+    if (runtimeMode === "RECORDED_REPLAY") {
       setAnalysis(MOCK_ANALYSIS);
-      // Simulate live event stream propagation
-      MOCK_STREAM_EVENTS.forEach((evt, idx) => {
-        setTimeout(() => {
-          setEvents((prev) => [...prev, evt]);
-        }, (idx + 1) * 350);
-      });
-    } finally {
+      setEvents(MOCK_STREAM_EVENTS.slice(-MAX_EVENTS));
       setAnalyzing(false);
+      return;
+    }
+    let operation: AbortController | null = null;
+    try {
+      operation = beginOperation();
+      const { analysis_id } = await client.startAnalysis(incident.incident_id, operation.signal);
+      const analysisData = await client.fetchAnalysis(analysis_id, operation.signal);
+      if (operationController.current !== operation) return;
+      setAnalysis(analysisData);
+      if (analysisData.status === "FAILED") setError("ANALYSIS_FAILED");
+    } catch (caught) {
+      if (operation && operationController.current === operation) setError(classifyError(caught));
+    } finally {
+      if (!operation || operationController.current === operation) setAnalyzing(false);
     }
   }
 
@@ -84,13 +130,7 @@ export function ActiveIncidentCard({
     if (!analysis) return;
     setIsSubmitting(true);
     setError(null);
-    try {
-      const updated = await submitDecision(analysis.analysis_id, "APPROVE", optionId);
-      setAnalysis(updated);
-      const execData = await fetchExecution(analysis.analysis_id);
-      setExecution(execData);
-    } catch (err) {
-      console.warn("Backend decision unavailable, using demo simulation:", err);
+    if (runtimeMode === "RECORDED_REPLAY") {
       setAnalysis({
         ...analysis,
         decision: "APPROVE",
@@ -98,8 +138,30 @@ export function ActiveIncidentCard({
         execution_status: "COMPLETED",
       });
       setExecution(MOCK_EXECUTION);
-    } finally {
       setIsSubmitting(false);
+      return;
+    }
+    let operation: AbortController | null = null;
+    try {
+      operation = beginOperation();
+      const updated = await client.submitDecision(analysis.analysis_id, "APPROVE", optionId, operation.signal);
+      if (operationController.current !== operation) return;
+      setAnalysis(updated);
+      try {
+        const execData = await client.fetchExecution(analysis.analysis_id, operation.signal);
+        if (operationController.current !== operation) return;
+        setExecution(execData);
+        setExecutionRetryId(null);
+      } catch {
+        if (operationController.current === operation) {
+          setExecutionRetryId(analysis.analysis_id);
+          setError("EXECUTION_UNAVAILABLE");
+        }
+      }
+    } catch (caught) {
+      if (operation && operationController.current === operation) setError(classifyError(caught));
+    } finally {
+      if (!operation || operationController.current === operation) setIsSubmitting(false);
     }
   }
 
@@ -107,31 +169,50 @@ export function ActiveIncidentCard({
     if (!analysis) return;
     setIsSubmitting(true);
     setError(null);
-    try {
-      const updated = await submitDecision(analysis.analysis_id, "REJECT");
-      setAnalysis(updated);
-    } catch (err) {
-      console.warn("Backend decision unavailable, using demo simulation:", err);
+    if (runtimeMode === "RECORDED_REPLAY") {
       setAnalysis({
         ...analysis,
         decision: "REJECT",
         decided_option_id: null,
       });
-    } finally {
       setIsSubmitting(false);
+      return;
+    }
+    let operation: AbortController | null = null;
+    try {
+      operation = beginOperation();
+      const updated = await client.submitDecision(analysis.analysis_id, "REJECT", undefined, operation.signal);
+      if (operationController.current !== operation) return;
+      setAnalysis(updated);
+    } catch (caught) {
+      if (operation && operationController.current === operation) setError(classifyError(caught));
+    } finally {
+      if (!operation || operationController.current === operation) setIsSubmitting(false);
+    }
+  }
+
+  async function retryExecution() {
+    if (!client || !executionRetryId) return;
+    setIsSubmitting(true);
+    setError(null);
+    let operation: AbortController | null = null;
+    try {
+      operation = beginOperation();
+      const executionData = await client.fetchExecution(executionRetryId, operation.signal);
+      if (operationController.current !== operation) return;
+      setExecution(executionData);
+      setExecutionRetryId(null);
+    } catch {
+      if (operation && operationController.current === operation) setError("EXECUTION_UNAVAILABLE");
+    } finally {
+      if (!operation || operationController.current === operation) setIsSubmitting(false);
     }
   }
 
   const isResolved = incident.resolved || execution?.status === "COMPLETED";
   const isRejected = analysis?.decision === "REJECT";
 
-  const currentPhase: ResolutionPhase = isResolved
-    ? "RESOLVED"
-    : analysis && !analysis.decision
-    ? "OPTIONS"
-    : analyzing || analysis
-    ? "ANALYZING"
-    : "ALERT";
+  const currentPhase = resolvePhase(isResolved, analysis, analyzing);
 
   return (
     <section
@@ -187,14 +268,24 @@ export function ActiveIncidentCard({
         <p className="mt-2 text-sm text-zinc-300">{incident.detail}</p>
         <p className="mt-1 text-xs text-zinc-400">
           Scene {incident.scene_id} • Detected{" "}
-          {new Date(incident.detected_at).toLocaleString()}
+          {new Date(incident.detected_at).toLocaleString("en-US", { timeZone: "UTC" })} UTC
         </p>
       </div>
 
       {error && (
-        <div className="mt-3 rounded border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300">
-          Error: {error}
+        <div role="alert" data-error-code={error} className="mt-3 rounded border border-red-500/40 bg-red-950/40 p-3 text-xs text-red-300">
+          {ERROR_MESSAGES[error as IncidentErrorCode] ?? ERROR_MESSAGES.BACKEND_UNAVAILABLE}
         </div>
+      )}
+      {analysis?.status === "FAILED" && (
+        <button type="button" onClick={() => void handleAnalyze()} disabled={analyzing} className="mt-3 rounded border border-red-500/50 px-3 py-2 text-xs font-bold text-red-200">
+          Retry analysis
+        </button>
+      )}
+      {executionRetryId && (
+        <button type="button" onClick={() => void retryExecution()} disabled={isSubmitting} className="mt-3 rounded border border-red-500/50 px-3 py-2 text-xs font-bold text-red-200">
+          Retry execution status
+        </button>
       )}
 
       {/* Step 1: Start Analysis CTA */}
@@ -206,7 +297,7 @@ export function ActiveIncidentCard({
             disabled={analyzing}
             className="cursor-pointer rounded-lg bg-red-600 px-5 py-2.5 text-xs font-bold tracking-wider text-white uppercase shadow-lg transition-all hover:bg-red-500 hover:shadow-red-500/25 disabled:cursor-wait disabled:opacity-60"
           >
-            {analyzing ? "Analyzing…" : "Start AI Impact Analysis"}
+            {analyzing ? "Analyzing…" : runtimeMode === "RECORDED_REPLAY" ? "Play Recorded Analysis" : "Start AI Impact Analysis"}
           </button>
         </div>
       )}
@@ -214,22 +305,23 @@ export function ActiveIncidentCard({
       {/* Live Coordination, Activity Monitor & Communication Views */}
       {(analysis || analyzing) && (
         <div id="agent-orchestration-section" className="mt-6 space-y-4">
+          {runtimeMode === "LIVE_GEMINI" && streamState && <div className="flex items-center gap-2"><p className="text-[10px] font-mono text-zinc-400" role="status">EVENT STREAM: {streamState}</p>{streamState === "FAILED" && <button type="button" onClick={() => { setError(null); setStreamGeneration((value) => value + 1); }} className="text-[10px] font-bold text-cyan-300 underline">Retry event stream</button>}</div>}
           {/* Resource Network View (SPEC §9.4 Flagship Screen) */}
           <ResourceNetworkView events={events} />
 
           {/* Agent Live View (SPEC §9.2) */}
-          <AgentLiveView events={events} />
+          <AgentLiveView events={events} replay={runtimeMode === "RECORDED_REPLAY"} />
 
           {/* 2-Column Grid: Communication Mock (SPEC §9.5) & MCP Activity Monitor (SPEC §9.3) */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ExternalCommunicationMock />
-            <McpActivityMonitor events={events} />
+            <McpActivityMonitor events={events} replay={runtimeMode === "RECORDED_REPLAY"} />
           </div>
         </div>
       )}
 
       {/* Step 2: Approval Gate (SPEC §9.9) */}
-      {analysis && !analysis.decision && (
+      {analysis?.status === "COMPLETED" && !analysis.decision && (
         <div id="option-comparison-section" className="mt-6">
           <ApprovalPanel
             analysis={analysis}
@@ -255,6 +347,7 @@ export function ActiveIncidentCard({
               analysis={analysis}
               execution={execution}
               events={events}
+              runtimeMode={runtimeMode}
             />
           </div>
         )}

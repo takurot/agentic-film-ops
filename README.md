@@ -180,6 +180,7 @@ TOTAL:                      378 automated tests passing
 ```bash
 cd frontend
 npm install
+cp .env.example .env.local             # Defaults to RECORDED_REPLAY
 npm run dev
 # Dashboard opens at http://localhost:3000
 ```
@@ -195,12 +196,20 @@ export GEMINI_API_KEY="your-key"
 uvicorn app.main:app --reload --port 8000
 ```
 
-`LIVE_GEMINI` uses Gemini through the Google Gen AI SDK and maintains six
+The public Firebase build is explicitly `RECORDED_REPLAY`: it uses bundled
+sample data and makes no backend, SSE, or WebSocket calls. It is a replay of a
+representative Gemini + MCP workflow, not a recording of a live session.
+
+For a local Live dashboard, set `NEXT_PUBLIC_FILMOPS_MODE=LIVE_GEMINI` and
+`NEXT_PUBLIC_API_URL=http://localhost:8000` before `npm run dev`. A production
+Live build requires a non-loopback HTTPS API URL. `LIVE_GEMINI` uses Gemini
+through the Google Gen AI SDK and maintains six
 validated MCP stdio sessions. Missing credentials, provider errors, malformed
 model output, and MCP failures remain visible as `FAILED`; the backend never
-silently changes modes. For deterministic judging or local rehearsal, select
-`FILMOPS_RUNTIME_MODE=RECORDED_REPLAY` explicitly. The dashboard displays the
-active runtime profile reported by `GET /api/runtime`.
+silently changes modes. The Live dashboard verifies the profile reported by
+`GET /api/runtime`; a connection failure or mismatch is shown as an error and
+never replaced by sample results. Public Live deployment remains disabled until
+the authentication and abuse-protection work in Issue #88 is complete.
 
 ### 4. Promo Video (Remotion Preview & Render)
 ```bash
@@ -219,7 +228,7 @@ npm run render                          # Render 1080p MP4 to remotion/out/promo
 ├── frontend/                # Next.js 16 + React 19 Dashboard & Component Library
 │   ├── src/app/             # App Router pages & layouts
 │   ├── src/components/      # Dashboard, React Flow Network, Approval, Video Modal
-│   └── src/lib/             # API client, SSE stream, Mock fallback fixtures
+│   └── src/lib/             # Validated Live client, bounded SSE, explicit replay fixtures
 ├── backend/                 # FastAPI server & Gemini Multi-Agent Orchestrator
 │   ├── app/agents/          # 6 Domain Agents (Weather, Script, Actor, Location, etc.)
 │   ├── app/mcp_servers/     # 6 Standalone MCP Server implementations (stdio)

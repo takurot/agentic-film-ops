@@ -1,5 +1,9 @@
 {
   "hosting": {
+    "predeploy": [
+      "npm --prefix frontend ci",
+      "npm --prefix frontend run build:replay"
+    ],
     "public": "frontend/out",
     "ignore": [
       "firebase.json",

@@ -20,7 +20,7 @@ An MCP-powered production control tower where Gemini multi-agents turn live movi
 ---
 
 ## 🔗 Submission Links
-- **Live Interactive Web App**: https://takurot0708.web.app
+- **Recorded Replay Web App (Sample Data)**: https://takurot0708.web.app
 - **YouTube Demo Video (90s)**: https://youtu.be/2UmZ72bTpjk
 - **GitHub Repository**: https://github.com/takurot/agentic-film-ops
 - **Promo Video Direct Stream (MP4)**: https://takurot0708.web.app/promo-video.mp4

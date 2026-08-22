@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Agentic FilmOps frontend
 
-## Getting Started
+The dashboard has two explicit, fail-closed build profiles:
 
-First, run the development server:
+- `RECORDED_REPLAY`: bundled sample data; no backend, SSE, or WebSocket traffic.
+- `LIVE_GEMINI`: requires `NEXT_PUBLIC_API_URL` and verifies the backend runtime handshake before displaying Live data.
 
 ```bash
+npm ci
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+For local Live development, use `NEXT_PUBLIC_FILMOPS_MODE=LIVE_GEMINI` with an
+explicit local API URL. Production Live builds require a non-loopback HTTPS
+endpoint. The public Firebase deployment must remain `RECORDED_REPLAY` until
+Issue #88 adds authentication, exact CORS, rate limiting, and public endpoint
+protection.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Verification:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npx tsc --noEmit
+npm test
+npm run test:e2e:replay
+```

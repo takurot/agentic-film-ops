@@ -60,4 +60,11 @@ describe("DemoTimeline", () => {
     // Beat at 90s = "MCP Access" → criterion 1 = "Gemini + MCP Access"
     expect(screen.getByText(/§15\.1/)).toBeInTheDocument();
   });
+
+  it("does not present Recorded Replay as a pulsing live feed", () => {
+    const { container } = render(<DemoTimeline elapsedSeconds={0} visible replay />);
+    expect(container.querySelector(".animate-ping")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Minimize demo timeline" }));
+    expect(container.querySelector(".animate-ping")).toBeNull();
+  });
 });

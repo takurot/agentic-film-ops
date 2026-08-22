@@ -8,6 +8,7 @@ export interface McpActivityMonitorProps {
   events: AnalysisEvent[];
   className?: string;
   maxEntries?: number;
+  replay?: boolean;
 }
 
 interface McpLogItem {
@@ -28,6 +29,7 @@ export function McpActivityMonitor({
   events,
   className = "",
   maxEntries = 100,
+  replay = false,
 }: McpActivityMonitorProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -95,7 +97,7 @@ export function McpActivityMonitor({
         <div className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
           <h2 className="font-bold uppercase tracking-wider text-zinc-100 text-xs">
-            LIVE MCP ACTIVITY
+            {replay ? "REPLAYED MCP ACTIVITY" : "LIVE MCP ACTIVITY"}
           </h2>
         </div>
         <span className="rounded bg-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-400">
@@ -117,7 +119,7 @@ export function McpActivityMonitor({
             <span className="text-sm">⏳</span>
             <p className="mt-1 text-[11px]">Awaiting MCP tool calls…</p>
             <p className="text-[10px] text-zinc-600">
-              Tool invocations across servers will appear in real time
+              {replay ? "Recorded tool invocations will appear here" : "Tool invocations across servers will appear in real time"}
             </p>
           </div>
         ) : (
