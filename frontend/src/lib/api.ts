@@ -80,7 +80,21 @@ export interface ExecutionData {
   steps: string[];
 }
 
+export interface RuntimeInfo {
+  mode: "LIVE_GEMINI" | "RECORDED_REPLAY";
+  reasoning_provider: string;
+  model: string | null;
+  mcp_transport: "stdio" | "in-process";
+  adk_enabled: boolean;
+}
+
 /* ─── Fetchers ─── */
+
+export async function fetchRuntimeInfo(): Promise<RuntimeInfo> {
+  const res = await fetch(`${API_BASE}/api/runtime`);
+  if (!res.ok) throw new Error(`Runtime fetch failed: ${res.status}`);
+  return res.json();
+}
 
 export async function fetchProductionHealth(): Promise<ProductionHealth> {
   const res = await fetch(`${API_BASE}/api/production/health`);
@@ -139,4 +153,3 @@ export async function resetDemoState(): Promise<{ status: string; message: strin
   if (!res.ok) throw new Error(`Reset demo state failed: ${res.status}`);
   return res.json();
 }
-

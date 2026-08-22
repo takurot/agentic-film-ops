@@ -22,7 +22,7 @@ from app.agents.actor import (
 )
 from app.db import get_session, init_db
 from app.events import AnalysisEventBus
-from app.gemini_client import GeminiUnavailableError
+from app.gemini_client import GeminiResponseValidationError, GeminiUnavailableError
 from app.mcp_servers import actor
 from app.models import Actor
 from app.seed import seed_scene_42
@@ -220,38 +220,38 @@ def test_actor_agent_module_never_imports_the_db_layer_directly():
 # --- Gemini parsing ---------------------------------------------------------
 
 
-async def test_parse_manager_reply_falls_back_to_unknown_on_invalid_json_syntax(
-    seeded_db, event_bus
+async def test_parse_manager_reply_fails_closed_on_invalid_json_syntax(
+    seeded_db, event_bus, collected_events
 ):
+    events, drain = collected_events
     gemini = make_gemini_stub("not json at all")
     agent_ = ActorAgent(gemini_client=gemini, event_bus=event_bus)
 
-    result = await agent_.resolve_availability(
-        ANALYSIS_ID,
-        actor_id="ACT-001",
-        scene_id="SC-042",
-        requested_start=CONFLICTING_WINDOW[0],
-        requested_end=CONFLICTING_WINDOW[1],
-    )
+    with pytest.raises(GeminiResponseValidationError):
+        await agent_.resolve_availability(
+            ANALYSIS_ID,
+            actor_id="ACT-001",
+            scene_id="SC-042",
+            requested_start=CONFLICTING_WINDOW[0],
+            requested_end=CONFLICTING_WINDOW[1],
+        )
+    await drain()
+    assert events[-1].status == "FAILED"
 
-    assert result.manager_reply.status == "UNKNOWN"
-    assert result.manager_reply.raw_message
 
-
-async def test_parse_manager_reply_falls_back_to_unknown_on_schema_mismatch(seeded_db, event_bus):
+async def test_parse_manager_reply_fails_closed_on_schema_mismatch(seeded_db, event_bus):
     # Valid JSON, but "status" isn't one of the allowed literal values.
     gemini = make_gemini_stub('{"status": "MAYBE"}')
     agent_ = ActorAgent(gemini_client=gemini, event_bus=event_bus)
 
-    result = await agent_.resolve_availability(
-        ANALYSIS_ID,
-        actor_id="ACT-001",
-        scene_id="SC-042",
-        requested_start=CONFLICTING_WINDOW[0],
-        requested_end=CONFLICTING_WINDOW[1],
-    )
-
-    assert result.manager_reply.status == "UNKNOWN"
+    with pytest.raises(GeminiResponseValidationError):
+        await agent_.resolve_availability(
+            ANALYSIS_ID,
+            actor_id="ACT-001",
+            scene_id="SC-042",
+            requested_start=CONFLICTING_WINDOW[0],
+            requested_end=CONFLICTING_WINDOW[1],
+        )
 
 
 async def test_parse_manager_reply_strips_markdown_code_fence(seeded_db, event_bus):

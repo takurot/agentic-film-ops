@@ -40,8 +40,7 @@ from app.events import (
     default_event_bus,
     scene_channel,
 )
-from app.mcp_servers.script import get_scene
-from app.mcp_servers.weather import get_forecast, get_weather_risk, subscribe_weather_alert
+from app.mcp_client import InProcessMCPClient, MCPClient
 from app.workflow import Incident, IncidentSchema, incident_to_schema
 
 AGENT_NAME = "WeatherAgent"
@@ -73,9 +72,11 @@ class WeatherAgent:
         *,
         rain_probability_threshold: float = DEFAULT_RAIN_PROBABILITY_THRESHOLD,
         event_bus: AnalysisEventBus = default_event_bus,
+        mcp_client: MCPClient | None = None,
     ) -> None:
         self.rain_probability_threshold = rain_probability_threshold
         self._event_bus = event_bus
+        self._mcp = mcp_client or InProcessMCPClient()
 
     async def check_scene(self, scene_id: str) -> WeatherIncidentDetection:
         """Resolve `scene_id`'s location, check its forecast, and raise an
@@ -95,7 +96,7 @@ class WeatherAgent:
 
     async def _check_scene(self, channel: str, scene_id: str) -> WeatherIncidentDetection:
         self._publish(channel, scene_id, "THINKING", f"Resolving {scene_id}'s location")
-        scene = await get_scene(scene_id=scene_id)
+        scene = await self._call("script", "get_scene", {"scene_id": scene_id})
         location_id = scene["location"]
 
         if location_id is None:
@@ -103,9 +104,9 @@ class WeatherAgent:
             return WeatherIncidentDetection(incident=None, risk_level="low", rain_probability=0.0)
 
         self._publish(channel, scene_id, "QUERYING_MCP", f"Checking forecast for {location_id}")
-        await subscribe_weather_alert(location_id=location_id)
-        forecast = await get_forecast(location_id=location_id)
-        risk = await get_weather_risk(location_id=location_id)
+        await self._call("weather", "subscribe_weather_alert", {"location_id": location_id})
+        forecast = await self._call("weather", "get_forecast", {"location_id": location_id})
+        risk = await self._call("weather", "get_weather_risk", {"location_id": location_id})
         self._publish(
             channel, scene_id, "RESPONSE_RECEIVED", f"Forecast received for {location_id}"
         )
@@ -137,6 +138,9 @@ class WeatherAgent:
         return WeatherIncidentDetection(
             incident=incident, risk_level=risk["risk_level"], rain_probability=rain_probability
         )
+
+    async def _call(self, server: str, tool: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        return await self._mcp.call(server, tool, arguments)
 
     def _raise_incident(
         self, scene: dict[str, Any], forecast: dict[str, Any], risk: dict[str, Any]

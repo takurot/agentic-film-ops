@@ -20,7 +20,7 @@ from app.agents.equipment import (
 )
 from app.db import get_session, init_db
 from app.events import AnalysisEventBus
-from app.gemini_client import GeminiUnavailableError
+from app.gemini_client import GeminiResponseValidationError, GeminiUnavailableError
 from app.mcp_servers import equipment
 from app.seed import seed_scene_42
 
@@ -347,38 +347,32 @@ async def test_all_published_events_conform_to_spec_status_enum(
 # --- Gemini summarization -----------------------------------------------------
 
 
-async def test_summarize_vendor_response_falls_back_to_raw_reason_on_invalid_json_syntax(
-    seeded_db, event_bus
-):
+async def test_summarize_vendor_response_fails_closed_on_invalid_json_syntax(seeded_db, event_bus):
     gemini = make_gemini_stub("not json at all")
     agent_ = EquipmentAgent(gemini_client=gemini, event_bus=event_bus)
 
-    result = await agent_.resolve_reservation(
-        ANALYSIS_ID,
-        equipment_id="EQ-001",
-        scene_id="SC-050",
-        requested_start="2026-09-03T09:00",
-        requested_end="2026-09-03T12:00",
-    )
+    with pytest.raises(GeminiResponseValidationError):
+        await agent_.resolve_reservation(
+            ANALYSIS_ID,
+            equipment_id="EQ-001",
+            scene_id="SC-050",
+            requested_start="2026-09-03T09:00",
+            requested_end="2026-09-03T12:00",
+        )
 
-    assert result.vendor_summary == result.vendor_reason
 
-
-async def test_summarize_vendor_response_falls_back_to_raw_reason_on_schema_mismatch(
-    seeded_db, event_bus
-):
+async def test_summarize_vendor_response_fails_closed_on_schema_mismatch(seeded_db, event_bus):
     gemini = make_gemini_stub('{"not_summary": "oops"}')
     agent_ = EquipmentAgent(gemini_client=gemini, event_bus=event_bus)
 
-    result = await agent_.resolve_reservation(
-        ANALYSIS_ID,
-        equipment_id="EQ-001",
-        scene_id="SC-050",
-        requested_start="2026-09-03T09:00",
-        requested_end="2026-09-03T12:00",
-    )
-
-    assert result.vendor_summary == result.vendor_reason
+    with pytest.raises(GeminiResponseValidationError):
+        await agent_.resolve_reservation(
+            ANALYSIS_ID,
+            equipment_id="EQ-001",
+            scene_id="SC-050",
+            requested_start="2026-09-03T09:00",
+            requested_end="2026-09-03T12:00",
+        )
 
 
 async def test_summarize_vendor_response_strips_markdown_code_fence(seeded_db, event_bus):

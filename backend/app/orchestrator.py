@@ -36,14 +36,39 @@ from app.events import (
     current_event_channel,
     default_event_bus,
 )
-from app.gemini_client import GeminiClient
-from app.mcp_servers import actor as actor_mcp
-from app.mcp_servers import equipment as equipment_mcp
-from app.mcp_servers import location as location_mcp
+from app.gemini_client import GeminiClient, GeminiResponseValidationError, GeminiUnavailableError
+from app.mcp_client import InProcessMCPClient, MCPClient, MCPError
 from app.models import Scene
 from app.workflow import AnalysisEngine, AnalysisOutcome, Incident
 
 AGENT_NAME = "ProductionOrchestrator"
+
+
+class DomainAnalysisError(RuntimeError):
+    """A required domain result was unavailable or unusable."""
+
+
+async def _gather_fail_fast(*awaitables):
+    """Cancel sibling domain calls when any required result fails."""
+    tasks = [asyncio.create_task(item) for item in awaitables]
+    try:
+        return await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+
+
+def _public_failure_code(exc: BaseException) -> str:
+    if isinstance(exc, GeminiUnavailableError):
+        return "GEMINI_UNAVAILABLE"
+    if isinstance(exc, GeminiResponseValidationError):
+        return "GEMINI_RESPONSE_INVALID"
+    if isinstance(exc, MCPError):
+        return "MCP_FAILED"
+    return "DOMAIN_ANALYSIS_FAILED"
 
 
 class ProductionOrchestrator(AnalysisEngine):
@@ -58,18 +83,28 @@ class ProductionOrchestrator(AnalysisEngine):
         location_agent: LocationAgent | None = None,
         equipment_agent: EquipmentAgent | None = None,
         schedule_agent: ScheduleAgent | None = None,
+        mcp_client: MCPClient | None = None,
+        runtime_mode: str = "RECORDED_REPLAY",
     ) -> None:
         self._gemini = gemini_client
         self._event_bus = event_bus or default_event_bus
         self._db_engine = db_engine
+        self._mcp_client = mcp_client or InProcessMCPClient()
+        self._runtime_mode = runtime_mode
         self._actor_agent = actor_agent or ActorAgent(
-            gemini_client=self._gemini, event_bus=self._event_bus
+            gemini_client=self._gemini,
+            event_bus=self._event_bus,
+            mcp_client=self._mcp_client,
         )
         self._location_agent = location_agent or LocationAgent(
-            gemini_client=self._gemini, event_bus=self._event_bus
+            gemini_client=self._gemini,
+            event_bus=self._event_bus,
+            mcp_client=self._mcp_client,
         )
         self._equipment_agent = equipment_agent or EquipmentAgent(
-            gemini_client=self._gemini, event_bus=self._event_bus
+            gemini_client=self._gemini,
+            event_bus=self._event_bus,
+            mcp_client=self._mcp_client,
         )
         self._schedule_agent = schedule_agent or ScheduleAgent(
             gemini_client=self._gemini, event_bus=self._event_bus
@@ -77,13 +112,14 @@ class ProductionOrchestrator(AnalysisEngine):
 
     async def run_analysis(self, incident: Incident, analysis_id: str) -> AnalysisOutcome:
         """Run the full multi-agent coordination pipeline for an incident (SPEC §6.1)."""
-        current_event_channel.set(analysis_id)
+        channel_token = current_event_channel.set(analysis_id)
         scene_id = incident.scene_id
 
         self._publish(
             analysis_id,
             "QUEUED",
-            f"Incident detected: {incident.headline}. Coordinating response across production resources.",
+            f"[{self._runtime_mode}] Incident detected: {incident.headline}. "
+            "Coordinating response across production resources.",
             type="STATUS",
             resource=scene_id,
         )
@@ -98,7 +134,10 @@ class ProductionOrchestrator(AnalysisEngine):
                 resource=scene_id,
             )
             script_result = await analyze_scene(
-                scene_id, analysis_id=analysis_id, event_bus=self._event_bus
+                scene_id,
+                analysis_id=analysis_id,
+                event_bus=self._event_bus,
+                mcp_client=self._mcp_client,
             )
 
             original_start = script_result.scene.scheduled
@@ -150,30 +189,24 @@ class ProductionOrchestrator(AnalysisEngine):
                 for eq_id in equip_ids
             ]
 
-            # Run in parallel with error tolerance
-            results = await asyncio.gather(
+            results = await _gather_fail_fast(
                 loc_alt_task,
                 *actor_tasks,
                 *equip_tasks,
-                return_exceptions=True,
             )
 
             loc_res = results[0]
             actor_results = results[1 : 1 + len(actor_tasks)]
-            _equip_results = results[1 + len(actor_tasks) :]
+            equip_results = results[1 + len(actor_tasks) :]
 
             # Resolve alternative indoor location
-            alt_location_id = "LOC-STUDIO-B"
-            alt_location_name = "Studio B"
-            if not isinstance(loc_res, Exception):
-                if loc_res.proposed_location_id:
-                    alt_location_id = loc_res.proposed_location_id
-                    matched = [c for c in loc_res.candidates if c.id == alt_location_id]
-                    if matched:
-                        alt_location_name = matched[0].name
-                elif loc_res.candidates:
-                    alt_location_id = loc_res.candidates[0].id
-                    alt_location_name = loc_res.candidates[0].name
+            if not loc_res.proposed_location_id:
+                raise DomainAnalysisError("NO_AVAILABLE_LOCATION")
+            alt_location_id = loc_res.proposed_location_id
+            matched = [c for c in loc_res.candidates if c.id == alt_location_id]
+            if not matched:
+                raise DomainAnalysisError("INVALID_LOCATION_RESULT")
+            alt_location_name = matched[0].name
 
             # Stage 3: Synthesize candidate rescheduling slots
             candidate_slots = [
@@ -224,6 +257,7 @@ class ProductionOrchestrator(AnalysisEngine):
                 candidates=budget_candidates,
                 analysis_id=analysis_id,
                 event_bus=self._event_bus,
+                mcp_client=self._mcp_client,
             )
 
             # Map budget results back to candidate slots
@@ -240,7 +274,7 @@ class ProductionOrchestrator(AnalysisEngine):
                 day_windows: dict[str, tuple[str, str]] = {}
                 hard_stop = None
 
-                if res and not isinstance(res, Exception):
+                if res:
                     reply = res.manager_reply
                     if reply and reply.status == "AVAILABLE":
                         if reply.window_start:
@@ -286,14 +320,16 @@ class ProductionOrchestrator(AnalysisEngine):
                 ),
             ]
 
-            equipment_inputs = [
-                EquipmentConstraintInput(
-                    equipment_id=eq_id,
-                    name=f"Equipment ({eq_id})",
-                    extension_available=True,
+            equipment_inputs = []
+            for eq_idx, eq_id in enumerate(equip_ids):
+                res = equip_results[eq_idx]
+                equipment_inputs.append(
+                    EquipmentConstraintInput(
+                        equipment_id=eq_id,
+                        name=f"Equipment ({eq_id})",
+                        extension_available=bool(res.reserved),
+                    )
                 )
-                for eq_id in equip_ids
-            ]
 
             replan_input = ScheduleReplanInput(
                 scene=TargetSceneMetadata(
@@ -335,18 +371,21 @@ class ProductionOrchestrator(AnalysisEngine):
             )
 
         except Exception as exc:  # noqa: BLE001
+            failure_code = _public_failure_code(exc)
             self._publish(
                 analysis_id,
                 "FAILED",
-                f"Production Orchestrator analysis failed: {exc}",
+                f"Production Orchestrator analysis failed: {failure_code}",
                 type="STATUS",
                 resource=scene_id,
             )
             return AnalysisOutcome(
                 status="FAILED",
                 options=[],
-                explainability=f"Analysis failed due to error: {exc}",
+                explainability=f"Analysis failed: {failure_code}",
             )
+        finally:
+            current_event_channel.reset(channel_token)
 
     async def execute_plan(
         self,
@@ -355,8 +394,20 @@ class ProductionOrchestrator(AnalysisEngine):
         incident_id: str,
         db: Session | None = None,
     ) -> list[str]:
+        channel_token = current_event_channel.set(analysis_id)
+        try:
+            return await self._execute_plan(analysis_id, option, incident_id, db)
+        finally:
+            current_event_channel.reset(channel_token)
+
+    async def _execute_plan(
+        self,
+        analysis_id: str,
+        option: dict[str, Any],
+        incident_id: str,
+        db: Session | None = None,
+    ) -> list[str]:
         """Execute the approved plan across MCP servers and update Resource Graph (SPEC §9.10)."""
-        current_event_channel.set(analysis_id)
         scene_id = option.get("target_scene_id", "SC-042")
         new_loc_id = option.get("location_id", "LOC-STUDIO-B")
         start_time = option.get("start_time", "2026-09-02T16:00")
@@ -365,7 +416,8 @@ class ProductionOrchestrator(AnalysisEngine):
         self._publish(
             analysis_id,
             "ANALYZING",
-            f"Executing approved plan {option.get('option_id')}: updating bookings and production schedule",
+            f"[{self._runtime_mode}] Executing approved plan {option.get('option_id')}: "
+            "updating bookings and production schedule",
             type="EXECUTION",
             resource=scene_id,
         )
@@ -373,11 +425,15 @@ class ProductionOrchestrator(AnalysisEngine):
         steps: list[str] = []
 
         # 1. Confirm Location booking
-        await location_mcp.confirm_location(
-            location_id=new_loc_id,
-            scene_id=scene_id,
-            start=start_time,
-            end=end_time,
+        await self._mcp_client.call(
+            "location",
+            "confirm_location",
+            {
+                "location_id": new_loc_id,
+                "scene_id": scene_id,
+                "start": start_time,
+                "end": end_time,
+            },
         )
         steps.append(f"Location {new_loc_id} confirmed ({start_time} - {end_time})")
         self._publish(
@@ -393,9 +449,7 @@ class ProductionOrchestrator(AnalysisEngine):
             scene = session.get(Scene, scene_id)
             if scene:
                 for actor in scene.actors:
-                    await actor_mcp.confirm_actor(
-                        actor_id=actor.id,
-                    )
+                    await self._mcp_client.call("actor", "confirm_actor", {"actor_id": actor.id})
                     steps.append(f"Actor {actor.name} ({actor.id}) booking confirmed")
                     self._publish(
                         analysis_id,
@@ -407,11 +461,15 @@ class ProductionOrchestrator(AnalysisEngine):
 
                 # 3. Reserve Equipment
                 for eq in scene.equipment:
-                    await equipment_mcp.reserve_equipment(
-                        equipment_id=eq.id,
-                        scene_id=scene_id,
-                        start=start_time,
-                        end=end_time,
+                    await self._mcp_client.call(
+                        "equipment",
+                        "reserve_equipment",
+                        {
+                            "equipment_id": eq.id,
+                            "scene_id": scene_id,
+                            "start": start_time,
+                            "end": end_time,
+                        },
                     )
                     steps.append(f"Equipment {eq.name} ({eq.id}) reservation extended")
                     self._publish(

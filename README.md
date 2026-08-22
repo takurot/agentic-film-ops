@@ -23,7 +23,7 @@
 
 When reality disrupts a $20M+ film production—such as a sudden 92% thunderstorm forecast on an outdoor rooftop shoot—producers face hours of chaotic calls, union overtime disputes, and **tens of thousands in idle crew standby penalties ($79,800+)**.
 
-**Agentic FilmOps** turns every production resource (actors, equipment, stages, weather, budgets) into an AI-accessible **Production Resource Network** connected through the **Model Context Protocol (MCP)**. Powered by **Gemini 2.5** and the **Google Agent Development Kit (ADK)**, a team of 6 domain agents autonomously observes the disruption, reasons across cascading constraints, negotiates with external talent managers, generates Pareto-optimal replanning options with explainability, and executes the approved plan—**resolving the entire crisis in under 4 minutes with 1 human approval.**
+**Agentic FilmOps** turns every production resource (actors, equipment, stages, weather, budgets) into an AI-accessible **Production Resource Network** connected through the **Model Context Protocol (MCP)**. Powered by **Gemini 2.5 through the Google Gen AI SDK**, a team of 6 domain agents autonomously observes the disruption, reasons across cascading constraints, negotiates with external talent managers, generates Pareto-optimal replanning options with explainability, and executes the approved plan—**resolving the entire crisis in under 4 minutes with 1 human approval.**
 
 ```text
 Observe (Doppler Radar) 
@@ -74,7 +74,7 @@ The AI generates 3 explainable options (Option A: Studio B Swap [Recommended], O
 | **1** | `0:00` | **Production Dashboard**: 54-day shoot overview, 94% schedule adherence, $12.4M spent. |
 | **2** | `0:20` | **Weather Risk Alert**: Doppler radar detects 92% rain on Scene 42 rooftop shoot. |
 | **3** | `0:40` | **Impact Analysis**: Producer triggers AI Impact Analysis. |
-| **4** | `1:00` | **Multi-Agent Coordination**: 6 domain agents activate in parallel via Google ADK. |
+| **4** | `1:00` | **Multi-Agent Coordination**: 6 domain agents activate in parallel, with Gemini reasoning via the Google Gen AI SDK. |
 | **5** | `1:30` | **Live MCP Tool Bus**: Real-time stdio stream captures tool queries and responses. |
 | **6** | `1:50` | **External Agency Comms**: Actor Agent negotiates with talent agency manager. |
 | **7** | `2:20` | **Structured Comms Ingestion**: Unstructured chat parsed into time-window constraints. |
@@ -98,7 +98,7 @@ The AI generates 3 explainable options (Option A: Studio B Swap [Recommended], O
                                         │
                     ┌───────────────────▼────────────────────┐
                     │        PRODUCTION ORCHESTRATOR         │
-                    │         Gemini 2.5 + Google ADK        │
+                    │      Gemini 2.5 + Google Gen AI SDK   │
                     └───────────────────┬────────────────────┘
                                         │
                                   MCP Layer (Bus)
@@ -142,7 +142,7 @@ Frontend
 
 Backend & AI Core
  ├─ Python 3.11 / FastAPI
- ├─ Gemini 2.5 (Flash & Pro) via Google Agent Development Kit (ADK)
+ ├─ Gemini 2.5 Flash via Google Gen AI SDK
  ├─ Model Context Protocol (MCP) Python SDK
  └─ SQLite + SQLAlchemy (Production Resource Graph)
 
@@ -190,8 +190,17 @@ cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 python -m app.seed                      # Populate Scene 42 scenario
+export FILMOPS_RUNTIME_MODE=LIVE_GEMINI
+export GEMINI_API_KEY="your-key"
 uvicorn app.main:app --reload --port 8000
 ```
+
+`LIVE_GEMINI` uses Gemini through the Google Gen AI SDK and maintains six
+validated MCP stdio sessions. Missing credentials, provider errors, malformed
+model output, and MCP failures remain visible as `FAILED`; the backend never
+silently changes modes. For deterministic judging or local rehearsal, select
+`FILMOPS_RUNTIME_MODE=RECORDED_REPLAY` explicitly. The dashboard displays the
+active runtime profile reported by `GET /api/runtime`.
 
 ### 4. Promo Video (Remotion Preview & Render)
 ```bash
@@ -231,7 +240,7 @@ npm run render                          # Render 1080p MP4 to remotion/out/promo
 ## 🎬 Credits & Acknowledgments
 
 - **Hackathon Entry**: Built for the Google Gemini AI Hackathon.
-- **Architectural Reference**: Anthropic Model Context Protocol (MCP) & Google Agent Development Kit (ADK).
+- **Architectural Reference**: Model Context Protocol (MCP) and the Google Gen AI SDK.
 - **Video Production**: Rendered with [Remotion](https://www.remotion.dev/).
 
 ---

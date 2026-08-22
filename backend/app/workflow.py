@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
 
+from fastapi import Request
 from pydantic import BaseModel
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -112,13 +113,10 @@ def set_analysis_engine(engine: AnalysisEngine | None) -> None:
     _custom_engine = engine
 
 
-def get_analysis_engine() -> AnalysisEngine:
+def get_analysis_engine(request: Request) -> AnalysisEngine:
     if _custom_engine is not None:
         return _custom_engine
-    # Lazily instantiate ProductionOrchestrator
-    from app.orchestrator import ProductionOrchestrator
-
-    return ProductionOrchestrator()
+    return request.app.state.runtime.engine
 
 
 def analysis_to_schema(analysis: Analysis) -> AnalysisSchema:

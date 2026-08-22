@@ -5,6 +5,13 @@ import Page from "./page";
 /* ─── Mock API module ─── */
 // vi.mock is hoisted, so all data must be inside the factory.
 vi.mock("@/lib/api", () => ({
+  fetchRuntimeInfo: vi.fn().mockResolvedValue({
+    mode: "LIVE_GEMINI",
+    reasoning_provider: "google-genai",
+    model: "gemini-2.5-flash",
+    mcp_transport: "stdio",
+    adk_enabled: false,
+  }),
   fetchProductionHealth: vi.fn().mockResolvedValue({
     production_day_current: 27,
     production_day_total: 54,
@@ -99,6 +106,13 @@ describe("Dashboard page", () => {
     });
   });
 
+  it("shows the runtime mode reported by the backend", async () => {
+    render(<Page />);
+    await waitFor(() => {
+      expect(screen.getByText(/live gemini \+ mcp stdio/i)).toBeInTheDocument();
+    });
+  });
+
   it("displays production health metrics", async () => {
     render(<Page />);
     await waitFor(() => {
@@ -174,4 +188,3 @@ describe("Dashboard page", () => {
     });
   });
 });
-
