@@ -168,21 +168,23 @@ MCP   = Access / Action（アクセス・実行）
 | --- | --- | --- |
 | `GET` | `/api/production/health` | Production Health サマリー取得（[9.1](#91-main-dashboard)） |
 | `GET` | `/api/incidents/active` | Active Incident 一覧取得 |
-| `POST` | `/api/incidents/{incident_id}/analyze` | 「START AI IMPACT ANALYSIS」起動。Orchestratorのパイプライン（[6.1](#61-production-orchestrator)）を開始し `analysis_id` を返す |
-| `GET` | `/api/analyses/{analysis_id}` | 分析の現在状態（代替案・Explainability含む）取得 |
+| `POST` | `/api/incidents/{incident_id}/analyze` | 「START AI IMPACT ANALYSIS」起動。非同期jobを作成し **202 Accepted** と `{ analysis_id, status: "QUEUED" }` を即時返却。Orchestratorパイプライン（[6.1](#61-production-orchestrator)）を非同期実行 |
+| `GET` | `/api/analyses/{analysis_id}` | 分析の現在状態（QUEUED / ANALYZING / COMPLETED / FAILED、代替案・Explainability含む）取得 |
 | `POST` | `/api/analyses/{analysis_id}/decision` | Human Approval（[9.9](#99-human-approval)）。`{ "decision": "APPROVE" \| "REJECT", "option_id": "..." }` |
 | `GET` | `/api/analyses/{analysis_id}/execution` | Execution 結果取得（[9.10](#910-execution-画面)） |
 
 #### イベント配信（WebSocket / SSE）
 
 - エンドポイント: `WS /api/analyses/{analysis_id}/events`（またはSSE `GET /api/analyses/{analysis_id}/events/stream`）
-- ペイロードは [8.1 イベントスキーマ](#81-イベントスキーマ)に準拠
+- 202 Accepted受領直後からリアルタイムにAgent推論・MCP tool callイベントを受信可能
+- 接続遅延・再接続時はチャンネルごとのリングバッファから過去イベントを自動キャッチアップ再生
 - MCP Activity Monitor（[9.3](#93-mcp-activity-monitor)）向けに、Agentイベントとは別チャンネルで MCP call/response のログも同一ストリームに `type: "MCP_CALL"` として混在させる
 
 #### 制約
 
 - `POST /api/analyses/{analysis_id}/decision` 以外の経路でOrchestratorの状態を変更するAPIを追加してはならない（[3.2](#32-アーキテクチャ原則必須制約)）
 - Dashboardは上記APIとイベントストリームのみに依存し、Agent/MCPのエンドポイントやスキーマを直接知らない設計とする
+
 
 ---
 

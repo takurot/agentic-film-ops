@@ -69,11 +69,15 @@ export function isMCPCallEvent(event: AnalysisEvent): event is MCPCallEvent {
   return event.type === "MCP_CALL";
 }
 function isOrchestratorTerminal(event: AnalysisEvent): boolean {
-  return !isMCPCallEvent(event) &&
+  if (isMCPCallEvent(event)) return false;
+  if (event.type === "ANALYSIS_COMPLETED" || event.type === "ANALYSIS_FAILED") return true;
+  return (
     ORCHESTRATOR_AGENT_NAMES.has(event.agent) &&
-    event.type === STATUS_EVENT_TYPE &&
-    (event.status === "COMPLETED" || event.status === "FAILED");
+    (event.status === "COMPLETED" || event.status === "FAILED") &&
+    (event.type === "ANALYSIS_COMPLETED" || event.type === "ANALYSIS_FAILED" || event.type === STATUS_EVENT_TYPE)
+  );
 }
+
 export interface EventStreamOptions {
   maxRetries?: number; baseRetryMs?: number;
   random?: () => number;

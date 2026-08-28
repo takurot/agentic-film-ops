@@ -35,7 +35,8 @@ class LatencyConfig:
 
     def seconds_for(self, tool_name: str) -> float:
         base = self.overrides.get(tool_name, self.default_seconds)
-        delay = base * self.scale
+        scale = _get_env_scale() if os.getenv("FILMOPS_LATENCY_SCALE") is not None else self.scale
+        delay = base * scale
         return max(0.0, delay)
 
     def set_override(self, tool_name: str, seconds: float) -> None:

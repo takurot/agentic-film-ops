@@ -93,11 +93,14 @@ class RuntimeContainer:
     metadata: RuntimeMetadata
     engine: Any
     mcp_client: MCPClient
+    analysis_runner: Any
 
     async def start(self) -> None:
         await self.mcp_client.start()
 
     async def close(self) -> None:
+        if self.analysis_runner:
+            await self.analysis_runner.shutdown()
         await self.mcp_client.close()
 
 
@@ -106,8 +109,11 @@ def build_runtime_container(
     *,
     gemini_factory: Callable[..., Any] | None = None,
     stdio_factory: Callable[..., MCPClient] | None = None,
+    analysis_runner_factory: Callable[..., Any] | None = None,
 ) -> RuntimeContainer:
     """Build one immutable runtime without any LIVE-to-Replay downgrade."""
+    from app.analysis_runner import AnalysisRunner
+    from app.db import create_db_engine
     from app.orchestrator import ProductionOrchestrator
 
     if settings.mode is RuntimeMode.LIVE_GEMINI:
@@ -138,9 +144,16 @@ def build_runtime_container(
         mcp_client=mcp_client,
         runtime_mode=settings.mode.value,
     )
+    db_engine = create_db_engine(settings.db_path)
+    analysis_runner = (
+        analysis_runner_factory(db_engine)
+        if analysis_runner_factory
+        else AnalysisRunner(bind=db_engine)
+    )
     return RuntimeContainer(
         settings=settings,
         metadata=metadata,
         engine=engine,
         mcp_client=mcp_client,
+        analysis_runner=analysis_runner,
     )

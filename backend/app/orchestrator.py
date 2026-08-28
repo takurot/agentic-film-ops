@@ -354,16 +354,17 @@ class ProductionOrchestrator(AnalysisEngine):
 
             schedule_res = await self._schedule_agent.replan(analysis_id, replan_input)
 
-            # Stage 6: Return completed outcome and await human approval (SPEC §9.9)
+            # Stage 6: Formulate replan options and prepare outcome (SPEC §9.9)
             self._publish(
                 analysis_id,
-                "COMPLETED",
+                "ANALYZING",
                 f"Multi-agent analysis completed: {len(schedule_res.options)} feasible replan options formulated. Awaiting Producer approval.",
-                type="STATUS",
+                type="REPLAN_COMPLETED",
                 resource=scene_id,
             )
 
             options_dicts = [opt.model_dump(mode="json") for opt in schedule_res.options]
+
             return AnalysisOutcome(
                 status="COMPLETED",
                 options=options_dicts,

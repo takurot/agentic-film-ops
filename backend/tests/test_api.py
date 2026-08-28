@@ -138,6 +138,18 @@ def test_active_incidents_lists_only_unresolved(api_client):
     assert incidents[0]["scene_id"] == "SC-042"
 
 
+def wait_for_analysis(client: TestClient, analysis_id: str, timeout: float = 2.0) -> dict:
+    import time
+
+    start = time.time()
+    while time.time() - start < timeout:
+        res = client.get(f"/api/analyses/{analysis_id}")
+        if res.status_code == 200 and res.json()["status"] in ("COMPLETED", "FAILED"):
+            return res.json()
+        time.sleep(0.02)
+    return client.get(f"/api/analyses/{analysis_id}").json()
+
+
 def test_analyze_unknown_incident_returns_404(api_client):
     client, _engine = api_client
 
@@ -168,12 +180,11 @@ def test_analyze_with_not_implemented_engine_reports_failure(api_client):
     app.dependency_overrides[get_analysis_engine] = lambda: StubEngine()
 
     analyze_response = client.post(f"/api/incidents/{incident_id}/analyze")
-    assert analyze_response.status_code == 200
+    assert analyze_response.status_code == 202
     analysis_id = analyze_response.json()["analysis_id"]
+    assert analyze_response.json()["status"] == "QUEUED"
 
-    get_response = client.get(f"/api/analyses/{analysis_id}")
-    assert get_response.status_code == 200
-    body = get_response.json()
+    body = wait_for_analysis(client, analysis_id)
     assert body["status"] == "FAILED"
     assert body["options"] == []
     assert "Stub failure message" in body["explainability"]
@@ -203,7 +214,10 @@ def test_decision_with_no_feasible_options_is_rejected(api_client):
 
     app.dependency_overrides[get_analysis_engine] = lambda: EmptyOptionsEngine()
     incident_id = seed_incident(engine)
-    analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
+    analyze_res = client.post(f"/api/incidents/{incident_id}/analyze")
+    assert analyze_res.status_code == 202
+    analysis_id = analyze_res.json()["analysis_id"]
+    wait_for_analysis(client, analysis_id)
 
     response = client.post(
         f"/api/analyses/{analysis_id}/decision",
@@ -217,7 +231,10 @@ def test_approve_with_a_valid_option_starts_execution(api_client):
     client, engine = api_client
     app.dependency_overrides[get_analysis_engine] = lambda: FakeEngineWithOption()
     incident_id = seed_incident(engine)
-    analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
+    analyze_res = client.post(f"/api/incidents/{incident_id}/analyze")
+    assert analyze_res.status_code == 202
+    analysis_id = analyze_res.json()["analysis_id"]
+    wait_for_analysis(client, analysis_id)
 
     response = client.post(
         f"/api/analyses/{analysis_id}/decision",
@@ -240,7 +257,10 @@ def test_approve_with_an_unknown_option_id_is_rejected(api_client):
     client, engine = api_client
     app.dependency_overrides[get_analysis_engine] = lambda: FakeEngineWithOption()
     incident_id = seed_incident(engine)
-    analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
+    analyze_res = client.post(f"/api/incidents/{incident_id}/analyze")
+    assert analyze_res.status_code == 202
+    analysis_id = analyze_res.json()["analysis_id"]
+    wait_for_analysis(client, analysis_id)
 
     response = client.post(
         f"/api/analyses/{analysis_id}/decision",
@@ -254,7 +274,10 @@ def test_reject_leaves_execution_not_started(api_client):
     client, engine = api_client
     app.dependency_overrides[get_analysis_engine] = lambda: FakeEngineWithOption()
     incident_id = seed_incident(engine)
-    analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
+    analyze_res = client.post(f"/api/incidents/{incident_id}/analyze")
+    assert analyze_res.status_code == 202
+    analysis_id = analyze_res.json()["analysis_id"]
+    wait_for_analysis(client, analysis_id)
 
     response = client.post(f"/api/analyses/{analysis_id}/decision", json={"decision": "REJECT"})
 
@@ -267,7 +290,10 @@ def test_deciding_twice_is_rejected(api_client):
     client, engine = api_client
     app.dependency_overrides[get_analysis_engine] = lambda: FakeEngineWithOption()
     incident_id = seed_incident(engine)
-    analysis_id = client.post(f"/api/incidents/{incident_id}/analyze").json()["analysis_id"]
+    analyze_res = client.post(f"/api/incidents/{incident_id}/analyze")
+    assert analyze_res.status_code == 202
+    analysis_id = analyze_res.json()["analysis_id"]
+    wait_for_analysis(client, analysis_id)
     client.post(f"/api/analyses/{analysis_id}/decision", json={"decision": "REJECT"})
 
     response = client.post(f"/api/analyses/{analysis_id}/decision", json={"decision": "REJECT"})
@@ -303,10 +329,17 @@ def test_events_websocket_streams_published_events(api_client):
                 resource="ACT-001",
             ),
         )
-        received = websocket.receive_json()
+        received_events = []
+        while True:
+            ev = websocket.receive_json()
+            received_events.append(ev)
+            if ev.get("agent") == "ActorAgent":
+                break
 
-    assert received["agent"] == "ActorAgent"
-    assert received["status"] == "WAITING_EXTERNAL"
+    assert any(
+        e.get("agent") == "ActorAgent" and e.get("status") == "WAITING_EXTERNAL"
+        for e in received_events
+    )
 
 
 def test_events_websocket_also_streams_mcp_call_events(api_client):
@@ -329,7 +362,13 @@ def test_events_websocket_also_streams_mcp_call_events(api_client):
                 resource="LOC-003",
             ),
         )
-        received = websocket.receive_json()
+        received_events = []
+        while True:
+            ev = websocket.receive_json()
+            received_events.append(ev)
+            if ev.get("type") == "MCP_CALL" and ev.get("tool") == "get_forecast":
+                break
 
-    assert received["type"] == "MCP_CALL"
-    assert received["tool"] == "get_forecast"
+    assert any(
+        e.get("type") == "MCP_CALL" and e.get("tool") == "get_forecast" for e in received_events
+    )
