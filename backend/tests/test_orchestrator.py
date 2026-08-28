@@ -154,11 +154,18 @@ async def test_equipment_vendor_result_is_forwarded_to_constraint_solver(monkeyp
 
 @pytest.fixture
 def isolated_db_engine(tmp_path, monkeypatch):
+    from app.latency import get_latency_config
+
+    monkeypatch.setenv("FILMOPS_LATENCY_SCALE", "0")
+    monkeypatch.setattr("app.mcp_servers.actor._MANAGER_RESPONSE_DELAY_SECONDS", 0.0)
+    get_latency_config(reload=True)
     engine = create_db_engine(tmp_path / "orchestrator_test.db")
     monkeypatch.setattr(db_module, "engine", engine)
     init_db(bind=engine)
+
     with get_session(engine) as db:
         seed_scene_42(db)
+
         # Create a test weather incident for Scene 42
         incident = Incident(
             incident_id="INC-TEST-042",
@@ -176,11 +183,19 @@ def isolated_db_engine(tmp_path, monkeypatch):
 
 @pytest.fixture
 def orchestrator_client(isolated_db_engine):
+    orch = ProductionOrchestrator(
+        gemini_client=make_gemini_stub(),
+        db_engine=isolated_db_engine,
+    )
+
     def override_db():
         with get_session(isolated_db_engine) as session:
             yield session
 
+    from app.workflow import get_analysis_engine
+
     app.dependency_overrides[get_db_session] = override_db
+    app.dependency_overrides[get_analysis_engine] = lambda: orch
     with TestClient(app) as client:
         yield client, isolated_db_engine
     app.dependency_overrides.clear()
@@ -275,36 +290,69 @@ async def test_orchestrator_execute_plan_on_approval(isolated_db_engine):
     assert current_event_channel.get() is None
 
 
-def test_api_end_to_end_closed_loop(orchestrator_client):
+@pytest.mark.asyncio
+async def test_api_end_to_end_closed_loop(isolated_db_engine):
     """Test full closed-loop via HTTP REST API (analyze -> stream events -> approve -> executed)."""
-    client, engine = orchestrator_client
+    import asyncio
 
-    # 1. Start Analysis
-    res_analyze = client.post("/api/incidents/INC-TEST-042/analyze")
-    assert res_analyze.status_code == 200
-    analysis_data = res_analyze.json()
-    analysis_id = analysis_data["analysis_id"]
-    assert analysis_data["status"] == "COMPLETED"
-    assert len(analysis_data["options"]) >= 1
+    from httpx import ASGITransport, AsyncClient
 
-    # 2. Verify human approval gate: Incident is not yet resolved before decision
-    with get_session(engine) as db:
-        inc = db.get(Incident, "INC-TEST-042")
-        assert inc.resolved is False
-
-    # 3. Approve Option A
-    res_decision = client.post(
-        f"/api/analyses/{analysis_id}/decision",
-        json={"decision": "APPROVE", "option_id": "OPTION_A"},
+    orch = ProductionOrchestrator(
+        gemini_client=make_gemini_stub(),
+        db_engine=isolated_db_engine,
     )
-    assert res_decision.status_code == 200
-    decision_data = res_decision.json()
-    assert decision_data["decision"] == "APPROVE"
-    assert decision_data["execution_status"] == "COMPLETED"
 
-    # 4. Verify incident resolved in DB and Production Resource Graph updated
-    with get_session(engine) as db:
-        inc = db.get(Incident, "INC-TEST-042")
-        assert inc.resolved is True
-        scene = db.get(Scene, "SC-042")
-        assert scene.location_id == "LOC-STUDIO-B"
+    def override_db():
+        with get_session(isolated_db_engine) as session:
+            yield session
+
+    from app.analysis_runner import AnalysisRunner, get_analysis_runner
+    from app.workflow import get_analysis_engine
+
+    runner = AnalysisRunner(bind=isolated_db_engine)
+
+    app.dependency_overrides[get_db_session] = override_db
+    app.dependency_overrides[get_analysis_engine] = lambda: orch
+    app.dependency_overrides[get_analysis_runner] = lambda: runner
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        # 1. Start Analysis
+        res_analyze = await client.post("/api/incidents/INC-TEST-042/analyze")
+        assert res_analyze.status_code == 202
+        analysis_id = res_analyze.json()["analysis_id"]
+        assert res_analyze.json()["status"] == "QUEUED"
+
+        # Wait for async analysis to complete
+        for _ in range(200):
+            res = await client.get(f"/api/analyses/{analysis_id}")
+            if res.json().get("status") in ("COMPLETED", "FAILED"):
+                break
+            await asyncio.sleep(0.05)
+
+        analysis_data = (await client.get(f"/api/analyses/{analysis_id}")).json()
+        assert analysis_data["status"] == "COMPLETED", f"Expected COMPLETED but got {analysis_data}"
+        assert len(analysis_data["options"]) >= 1
+
+        # 2. Verify human approval gate: Incident is not yet resolved before decision
+        with get_session(isolated_db_engine) as db:
+            inc = db.get(Incident, "INC-TEST-042")
+            assert inc.resolved is False
+
+        # 3. Approve Option A
+        res_decision = await client.post(
+            f"/api/analyses/{analysis_id}/decision",
+            json={"decision": "APPROVE", "option_id": "OPTION_A"},
+        )
+        assert res_decision.status_code == 200
+        decision_data = res_decision.json()
+        assert decision_data["decision"] == "APPROVE"
+        assert decision_data["execution_status"] == "COMPLETED"
+
+        # 4. Verify incident resolved in DB and Production Resource Graph updated
+        with get_session(isolated_db_engine) as db:
+            inc = db.get(Incident, "INC-TEST-042")
+            assert inc.resolved is True
+            scene = db.get(Scene, "SC-042")
+            assert scene.location_id == "LOC-STUDIO-B"
+
+    app.dependency_overrides.clear()

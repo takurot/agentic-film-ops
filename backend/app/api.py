@@ -22,6 +22,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.analysis_runner import AnalysisRunner, get_analysis_runner
 from app.db import get_db_session
 from app.events import AnalysisEvent, default_event_bus
 from app.models import Scene
@@ -48,17 +49,23 @@ router = APIRouter()
 @router.get("/api/runtime")
 def get_runtime_metadata(request: Request, response: Response) -> dict:
     """Public, secret-free evidence of the backend runtime in use."""
+    container = getattr(request.app.state, "runtime", None)
+    if container is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Runtime container not initialized",
+        )
     response.headers["Cache-Control"] = "no-store"
-    return request.app.state.runtime.metadata.model_dump(mode="json")
+    return container.metadata.model_dump(mode="json")
 
 
-@router.get("/api/production/health", response_model=ProductionHealthSchema)
+@router.get("/api/production/health")
 def get_production_health(db: Session = Depends(get_db_session)) -> ProductionHealthSchema:
     """Production Health summary (SPEC §9.1)."""
-    total_scenes = db.execute(select(Scene)).scalars().all()
     active_incidents = (
         db.execute(select(Incident).where(Incident.resolved.is_(False))).scalars().all()
     )
+    total_scenes = db.execute(select(Scene)).scalars().all()
 
     # Today's scenes progress (Scenes 38, 39, 40 per SPEC §9.1)
     today_scenes = [
@@ -98,8 +105,12 @@ def get_production_health(db: Session = Depends(get_db_session)) -> ProductionHe
 
 
 @router.post("/api/demo/reset")
-def reset_demo(db: Session = Depends(get_db_session)) -> dict:
+async def reset_demo(
+    db: Session = Depends(get_db_session),
+    runner: AnalysisRunner = Depends(get_analysis_runner),
+) -> dict:
     """Reset the demo scenario to pre-demo baseline (Issue #34, SPEC §2.2)."""
+    runner.cancel_all()
     return reset_demo_state(bind=db.get_bind())
 
 
@@ -109,32 +120,42 @@ def list_active_incidents(db: Session = Depends(get_db_session)) -> list[dict]:
     return [incident_to_schema(i).model_dump(mode="json") for i in incidents]
 
 
-@router.post("/api/incidents/{incident_id}/analyze")
+@router.post("/api/incidents/{incident_id}/analyze", status_code=status.HTTP_202_ACCEPTED)
 async def analyze_incident(
     incident_id: str,
     db: Session = Depends(get_db_session),
     engine: AnalysisEngine = Depends(get_analysis_engine),
+    runner: AnalysisRunner = Depends(get_analysis_runner),
 ) -> dict:
     incident = db.get(Incident, incident_id)
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
 
+    # Guard against duplicate active analysis for the same incident
+    active_analysis = (
+        db.execute(
+            select(Analysis).where(
+                Analysis.incident_id == incident_id,
+                Analysis.status.in_(["QUEUED", "ANALYZING"]),
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if active_analysis is not None:
+        return analysis_to_schema(active_analysis).model_dump(mode="json")
+
     analysis_id = f"AN-{uuid.uuid4().hex[:8]}"
     analysis = Analysis(
         analysis_id=analysis_id,
         incident_id=incident_id,
-        status="ANALYZING",
+        status="QUEUED",
         options=[],
     )
     db.add(analysis)
     db.commit()
 
-    outcome = await engine.run_analysis(incident, analysis_id)
-
-    analysis.status = outcome.status
-    analysis.options = outcome.options
-    analysis.explainability = outcome.explainability
-    db.commit()
+    runner.start_analysis(incident_id, analysis_id, engine, bind=db.get_bind())
 
     return analysis_to_schema(analysis).model_dump(mode="json")
 

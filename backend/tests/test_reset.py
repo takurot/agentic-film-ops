@@ -190,9 +190,20 @@ def test_full_demo_scenario_twice_in_a_row(reset_test_env):
 
         # 3. Start AI impact analysis
         analyze_res = client.post(f"/api/incidents/{incident_id}/analyze")
-        assert analyze_res.status_code == 200
+        assert analyze_res.status_code == 202
         analysis = analyze_res.json()
         analysis_id = analysis["analysis_id"]
+        assert analysis["status"] == "QUEUED"
+
+        # Wait for analysis to complete
+        import time
+
+        start = time.time()
+        analysis = client.get(f"/api/analyses/{analysis_id}").json()
+        while time.time() - start < 5.0 and analysis.get("status") != "COMPLETED":
+            time.sleep(0.05)
+            analysis = client.get(f"/api/analyses/{analysis_id}").json()
+
         assert analysis["status"] == "COMPLETED"
         assert len(analysis["options"]) == 1
 

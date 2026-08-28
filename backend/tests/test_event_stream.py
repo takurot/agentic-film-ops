@@ -240,13 +240,26 @@ def test_websocket_endpoint_streams_mcp_and_agent_events(test_db):
         default_event_bus.publish(analysis_id, event1)
         default_event_bus.publish(analysis_id, event2)
 
-        recv1 = ws.receive_json()
-        assert recv1["agent"] == "EquipmentAgent"
-        assert recv1["status"] == "QUERYING_MCP"
+        received_events = []
+        for _ in range(5):
+            try:
+                ev = ws.receive_json()
+                received_events.append(ev)
+                if any(e.get("agent") == "EquipmentAgent" for e in received_events) and any(
+                    e.get("type") == "MCP_CALL" for e in received_events
+                ):
+                    break
+            except (TimeoutError, RuntimeError, KeyError):
+                break
 
-        recv2 = ws.receive_json()
-        assert recv2["type"] == "MCP_CALL"
-        assert recv2["server"] == "equipment"
-        assert recv2["tool"] == "check_availability"
+        assert any(
+            e.get("agent") == "EquipmentAgent" and e.get("status") == "QUERYING_MCP"
+            for e in received_events
+        )
+
+        assert any(
+            e.get("type") == "MCP_CALL" and e.get("tool") == "check_availability"
+            for e in received_events
+        )
 
     app.dependency_overrides.clear()

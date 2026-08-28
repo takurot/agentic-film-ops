@@ -10,7 +10,7 @@ import {
   ExternalCommunicationMock,
 } from "@/components/live";
 import { ResourceNetworkView } from "@/components/network";
-import { connectEventStream, type AnalysisEvent, type EventStreamState } from "@/lib/eventStream";
+import { connectEventStream, type AgentEvent, type AnalysisEvent, type EventStreamState } from "@/lib/eventStream";
 import { PhaseStepIndicator, type ResolutionPhase } from "./PhaseStepIndicator";
 import {
   MOCK_ANALYSIS,
@@ -46,6 +46,34 @@ function resolvePhase(isResolved: boolean, analysis: AnalysisData | null, analyz
   return "ALERT";
 }
 
+function isAgentEvent(event: AnalysisEvent): event is AgentEvent {
+  return event.type !== "MCP_CALL" && "agent" in event;
+}
+
+function isSameEvent(a: AnalysisEvent, b: AnalysisEvent): boolean {
+  if (isAgentEvent(a) && isAgentEvent(b)) {
+    if (a.event_id && b.event_id) return a.event_id === b.event_id;
+    return (
+      a.timestamp === b.timestamp &&
+      a.agent === b.agent &&
+      a.type === b.type &&
+      a.status === b.status &&
+      a.message === b.message
+    );
+  }
+  if (!isAgentEvent(a) && !isAgentEvent(b)) {
+    if (a.call_id && b.call_id) return a.call_id === b.call_id && a.status === b.status;
+    return (
+      a.timestamp === b.timestamp &&
+      a.server === b.server &&
+      a.tool === b.tool &&
+      a.status === b.status &&
+      a.message === b.message
+    );
+  }
+  return false;
+}
+
 /**
  * ActiveIncidentCard – Weather risk alert with AI analysis,
  * Agent Live View (SPEC §9.2), MCP Activity Monitor (SPEC §9.3),
@@ -78,18 +106,77 @@ export function ActiveIncidentCard({
   }, []);
 
   // Subscribe to SSE stream whenever an analysis is created
+
   useEffect(() => {
     if (runtimeMode !== "LIVE_GEMINI" || !client || !analysis?.analysis_id || analysis.decision) return;
 
     const streamUrl = `${client.apiBase}/api/analyses/${encodeURIComponent(analysis.analysis_id)}/events/stream`;
-    const unsubscribe = connectEventStream(streamUrl, (event) => {
-      setEvents((prev) => [...prev, event].slice(-MAX_EVENTS));
-    }, { onStateChange: setStreamState, onProtocolError: () => setError("INVALID_EVENT_STREAM") });
+    const unsubscribe = connectEventStream(
+      streamUrl,
+      (event) => {
+        setEvents((prev) => {
+          if (prev.some((existing) => isSameEvent(existing, event))) return prev;
+          return [...prev, event].slice(-MAX_EVENTS);
+        });
+
+        // Trigger analysis refresh when completion/failure event arrives
+        if (
+          event.type === "ANALYSIS_COMPLETED" ||
+          (isAgentEvent(event) && (event.agent === "Orchestrator" || event.agent === "ProductionOrchestrator") && event.status === "COMPLETED")
+        ) {
+          client.fetchAnalysis(analysis.analysis_id).then((completedData) => {
+            if (completedData.status === "COMPLETED" || completedData.status === "FAILED") {
+              setAnalysis(completedData);
+              setAnalyzing(false);
+              if (completedData.status === "FAILED") {
+                setError("ANALYSIS_FAILED");
+              }
+            }
+          }).catch(() => {
+            setError("ANALYSIS_FAILED");
+            setAnalyzing(false);
+          });
+        } else if (
+          event.type === "ANALYSIS_FAILED" ||
+          (isAgentEvent(event) && (event.agent === "Orchestrator" || event.agent === "ProductionOrchestrator") && event.status === "FAILED")
+        ) {
+          setError("ANALYSIS_FAILED");
+          setAnalyzing(false);
+        }
+
+      },
+      { onStateChange: setStreamState, onProtocolError: () => setError("INVALID_EVENT_STREAM") }
+    );
 
     return () => {
       unsubscribe();
     };
   }, [analysis?.analysis_id, analysis?.decision, client, runtimeMode, streamGeneration]);
+
+
+  // Polling fallback while analyzing in LIVE mode
+  useEffect(() => {
+    if (runtimeMode !== "LIVE_GEMINI" || !client || !analysis?.analysis_id || !analyzing || analysis.decision) return;
+    if (analysis.status !== "QUEUED" && analysis.status !== "ANALYZING") return;
+
+    const interval = setInterval(async () => {
+      try {
+        const latest = await client.fetchAnalysis(analysis.analysis_id);
+        if (latest.status === "COMPLETED") {
+          setAnalysis(latest);
+          setAnalyzing(false);
+        } else if (latest.status === "FAILED") {
+          setAnalysis(latest);
+          setError("ANALYSIS_FAILED");
+          setAnalyzing(false);
+        }
+      } catch {
+        // Continue polling or let SSE / timeout handle
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [analysis?.analysis_id, analysis?.status, analysis?.decision, analyzing, client, runtimeMode]);
 
   function beginOperation(): AbortController {
     operationController.current?.abort();
@@ -118,15 +205,22 @@ export function ActiveIncidentCard({
       const analysisData = await client.fetchAnalysis(analysis_id, operation.signal);
       if (operationController.current !== operation) return;
       setAnalysis(analysisData);
-      if (analysisData.status === "FAILED") setError("ANALYSIS_FAILED");
+      if (analysisData.status === "FAILED") {
+        setError("ANALYSIS_FAILED");
+        setAnalyzing(false);
+      } else if (analysisData.status === "COMPLETED") {
+        setAnalyzing(false);
+      }
     } catch (caught) {
-      if (operation && operationController.current === operation) setError(classifyError(caught));
-    } finally {
-      if (!operation || operationController.current === operation) setAnalyzing(false);
+      if (operation && operationController.current === operation) {
+        setError(classifyError(caught));
+        setAnalyzing(false);
+      }
     }
   }
 
   async function handleApprove(optionId: string) {
+
     if (!analysis) return;
     setIsSubmitting(true);
     setError(null);
