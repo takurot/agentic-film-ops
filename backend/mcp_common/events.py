@@ -26,6 +26,7 @@ class MCPCallEvent(BaseModel):
     status: MCPCallStatus
     message: str
     resource: str | None = None
+    call_id: str | None = None
 
     @classmethod
     def create(
@@ -36,6 +37,7 @@ class MCPCallEvent(BaseModel):
         status: MCPCallStatus,
         message: str,
         resource: str | None = None,
+        call_id: str | None = None,
     ) -> "MCPCallEvent":
         return cls(
             timestamp=datetime.now().strftime("%H:%M:%S"),
@@ -44,6 +46,7 @@ class MCPCallEvent(BaseModel):
             status=status,
             message=message,
             resource=resource,
+            call_id=call_id,
         )
 
 
@@ -60,7 +63,8 @@ class EventSink:
         self._listeners.append(listener)
 
     def unsubscribe(self, listener: EventListener) -> None:
-        self._listeners.remove(listener)
+        if listener in self._listeners:
+            self._listeners.remove(listener)
 
     def publish(self, event: MCPCallEvent) -> None:
         for listener in self._listeners:
