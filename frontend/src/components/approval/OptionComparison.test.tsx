@@ -13,8 +13,9 @@ const mockOptions: ReplanOption[] = [
     recommended: true,
     checklist: [
       "Emma Carter available",
-      "Daniel Craig available",
+      "Daniel available",
       "ARRI Alexa 35 available",
+
       "Studio B available",
       "Continuity valid",
     ],
@@ -29,8 +30,9 @@ const mockOptions: ReplanOption[] = [
     recommended: false,
     checklist: [
       "Emma Carter available (overtime)",
-      "Daniel Craig available",
+      "Daniel available",
       "Camera package available",
+
     ],
     why: "Requires weekend overtime and adds 1 day production delay.",
   },

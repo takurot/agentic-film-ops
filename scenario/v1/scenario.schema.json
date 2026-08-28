@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FilmOpsDemoScenario",
+  "type": "object",
+  "required": [
+    "meta",
+    "production",
+    "today_scenes",
+    "resources",
+    "incident",
+    "options",
+    "cost_benefit_model",
+    "execution",
+    "stream_events"
+  ],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["scenario_id", "version", "title"],
+      "properties": {
+        "scenario_id": { "type": "string" },
+        "version": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" }
+      }
+    },
+    "production": {
+      "type": "object",
+      "required": [
+        "production_day_current",
+        "production_day_total",
+        "schedule_adherence_percent",
+        "budget_spent_usd",
+        "budget_total_usd",
+        "scenes_completed",
+        "scenes_total",
+        "overall_risk"
+      ],
+      "properties": {
+        "production_day_current": { "type": "integer", "minimum": 1 },
+        "production_day_total": { "type": "integer", "minimum": 1 },
+        "schedule_adherence_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "budget_spent_usd": { "type": "number", "minimum": 0 },
+        "budget_total_usd": { "type": "number", "minimum": 0 },
+        "scenes_completed": { "type": "integer", "minimum": 0 },
+        "scenes_total": { "type": "integer", "minimum": 1 },
+        "overall_risk": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] }
+      }
+    },
+    "today_scenes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["scene_id", "name", "status"],
+        "properties": {
+          "scene_id": { "type": "string" },
+          "name": { "type": "string" },
+          "status": { "type": "string", "enum": ["COMPLETED", "SHOOTING", "SCHEDULED"] },
+          "progress_percent": { "type": "number", "minimum": 0, "maximum": 100 }
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "required": ["actors", "equipment", "locations", "crew", "scenes"],
+      "properties": {
+        "actors": { "type": "array" },
+        "equipment": { "type": "array" },
+        "locations": { "type": "array" },
+        "crew": { "type": "array" },
+        "scenes": { "type": "array" }
+      }
+    },
+    "incident": {
+      "type": "object",
+      "required": ["incident_id", "scene_id", "type", "headline", "detail", "detected_at", "resolved"],
+      "properties": {
+        "incident_id": { "type": "string" },
+        "scene_id": { "type": "string" },
+        "type": { "type": "string" },
+        "severity": { "type": "string" },
+        "headline": { "type": "string" },
+        "detail": { "type": "string" },
+        "detected_at": { "type": "string" },
+        "resolved": { "type": "boolean" }
+      }
+    },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["option_id", "label", "cost_impact", "schedule_delay_days", "risk", "recommended"],
+        "properties": {
+          "option_id": { "type": "string" },
+          "label": { "type": "string" },
+          "cost_impact": { "type": "number" },
+          "schedule_delay_days": { "type": "number" },
+          "delay_hours": { "type": "number" },
+          "risk": { "type": "string" },
+          "recommended": { "type": "boolean" },
+          "summary": { "type": "string" },
+          "checklist": { "type": "array", "items": { "type": "string" } },
+          "why": { "type": "string" },
+          "tradeoffs": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "cost_benefit_model": {
+      "type": "object",
+      "required": [
+        "standby_day_penalty_usd",
+        "option_a_variance_usd",
+        "net_cost_avoided_usd",
+        "formula",
+        "assumptions"
+      ],
+      "properties": {
+        "standby_day_penalty_usd": { "type": "number" },
+        "option_a_variance_usd": { "type": "number" },
+        "net_cost_avoided_usd": { "type": "number" },
+        "formula": { "type": "string" },
+        "assumptions": { "type": "object" }
+      }
+    },
+    "execution": {
+      "type": "object",
+      "required": ["status", "steps"],
+      "properties": {
+        "status": { "type": "string" },
+        "steps": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "stream_events": {
+      "type": "array"
+    }
+  }
+}

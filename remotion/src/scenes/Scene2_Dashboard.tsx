@@ -33,16 +33,16 @@ export const Scene2_Dashboard: React.FC = () => {
             <p className="mt-2 font-mono text-3xl font-extrabold text-emerald-400">
               {initialHealth.schedule_adherence_percent}%
             </p>
-            <p className="mt-1 text-xs text-zinc-500">Day 12 of 30 • On Schedule</p>
+            <p className="mt-1 text-xs text-zinc-500">Day 27 of 54 • On Schedule</p>
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/70 p-5 backdrop-blur-md">
             <p className="font-mono text-xs text-zinc-400">BUDGET TRACKING</p>
             <p className="mt-2 font-mono text-3xl font-extrabold text-zinc-100">
-              ${(initialHealth.budget_spent_usd / 1000).toFixed(0)}k
+              ${(initialHealth.budget_spent_usd / 1000000).toFixed(1)}M
             </p>
             <p className="mt-1 text-xs text-zinc-500">
-              of ${(initialHealth.budget_total_usd / 1000).toFixed(0)}k Allocated
+              of ${(initialHealth.budget_total_usd / 1000000).toFixed(1)}M Allocated
             </p>
           </div>
 
@@ -52,6 +52,7 @@ export const Scene2_Dashboard: React.FC = () => {
               {initialHealth.scenes_completed} / {initialHealth.scenes_total}
             </p>
             <p className="mt-1 text-xs text-zinc-500">3 Scenes Scheduled Today</p>
+
           </div>
 
           <div
@@ -96,7 +97,7 @@ export const Scene2_Dashboard: React.FC = () => {
                     </span>
                   </div>
                   <h3 className="mt-2 text-xl font-bold text-white">
-                    Heavy Thunderstorm Detected at Cliffside Vista (Scene 42)
+                    Heavy Rain Forecasted at Shibuya Rooftop (Scene 42)
                   </h3>
                   <p className="mt-1 text-sm text-zinc-300">
                     {activeIncident.detail}
@@ -107,7 +108,7 @@ export const Scene2_Dashboard: React.FC = () => {
               <div className="flex flex-col items-end gap-2">
                 <span className="flex items-center gap-2 font-mono text-xs text-red-400">
                   <span className="h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
-                  IMPACT: +4.5h DELAY / +$84k
+                  IMPACT: +4.0h DELAY / +$84k
                 </span>
               </div>
             </div>
@@ -136,8 +137,9 @@ export const Scene2_Dashboard: React.FC = () => {
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
           <div className="flex items-center justify-between">
             <h4 className="font-mono text-xs font-bold tracking-wider text-zinc-400 uppercase">
-              DAY 12 SHOOTING SLATE
+              DAY 27 SHOOTING SLATE
             </h4>
+
             <span className="font-mono text-xs text-zinc-500">Call Time: 06:30 PST</span>
           </div>
           <div className="mt-4 space-y-2">

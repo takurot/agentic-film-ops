@@ -72,10 +72,11 @@ export function OptionComparison({
               ? opt.checklist
               : [
                   "Emma Carter available",
-                  "Daniel Craig available",
+                  "Daniel available",
                   "Camera package available",
                   "Continuity preserved",
                 ];
+
 
           return (
             <div
@@ -288,8 +289,9 @@ export function OptionComparison({
               </div>
             ) : (
               <ul className="space-y-1 list-disc list-inside text-zinc-300">
-                <li>Both principal actors (Emma Carter, Daniel Craig) available in requested slot</li>
+                <li>Both principal actors (Emma Carter, Daniel) available in requested slot</li>
                 <li>No overtime penalties or crew turn-around violations incurred</li>
+
                 <li>Camera package (ARRI Alexa 35) extension verified with vendor</li>
                 <li>Studio B booking verified with location manager</li>
                 <li>Script continuity preserved with preceding and succeeding scenes</li>

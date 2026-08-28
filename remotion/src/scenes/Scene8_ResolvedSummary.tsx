@@ -30,10 +30,10 @@ export const Scene8_ResolvedSummary: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-emerald-300 uppercase">
-                    Incident INC-2026-0819-01 Successfully Resolved
+                    Incident INC-20260902-001 Successfully Resolved
                   </h3>
                   <p className="text-xs text-zinc-300">
-                    Day 12 filming shifted smoothly to Stage 2 Soundstage. Principal wrap date preserved.
+                    Day 27 filming shifted smoothly to Studio B Soundstage. Principal wrap date preserved.
                   </p>
                 </div>
               </div>

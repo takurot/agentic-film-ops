@@ -51,7 +51,7 @@ describe("PromoVideo — SPEC §10 Compliance & Component Tests", () => {
   it("renders Scene 2 (Dashboard & Alert) with metrics and active weather alert", () => {
     render(<Scene2_Dashboard />);
     expect(screen.getByText(/CRITICAL WEATHER ALERT/i)).toBeInTheDocument();
-    expect(screen.getByText(/98.4%/i)).toBeInTheDocument();
+    expect(screen.getByText(/94%/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Scene 42/i).length).toBeGreaterThan(0);
   });
 
@@ -69,21 +69,21 @@ describe("PromoVideo — SPEC §10 Compliance & Component Tests", () => {
     render(<Scene4_NetworkMcp />);
     expect(screen.getByText(/Resource Dependency Graph & Propagation/i)).toBeInTheDocument();
     expect(screen.getByText(/MCP Tool Stream Terminal/i)).toBeInTheDocument();
-    expect(screen.getByText(/Stage 2 \(Int\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Studio B \(Int\)/i)).toBeInTheDocument();
   });
 
   it("renders Scene 5 (External Communication Mock & Structured Extraction)", () => {
     render(<Scene5_ManagerComms />);
-    expect(screen.getByText(/Vance Talent Management/i)).toBeInTheDocument();
+    expect(screen.getByText(/Talent Agency Management/i)).toBeInTheDocument();
     expect(screen.getByText(/LLM Structured Extraction/i)).toBeInTheDocument();
     expect(screen.getByText(/talent_available:/i)).toBeInTheDocument();
   });
 
   it("renders Scene 6 (Replanning Options & Explainability)", () => {
     render(<Scene6_ReplanningOptions />);
-    expect(screen.getByText(/Option A: Swap with Scene 58/i)).toBeInTheDocument();
+    expect(screen.getByText(/Option A: Reschedule to Studio B/i)).toBeInTheDocument();
     expect(screen.getByText(/RECOMMENDED BY GEMINI SOLVER/i)).toBeInTheDocument();
-    expect(screen.getByText(/Option B: Stand Down Crew/i)).toBeInTheDocument();
+    expect(screen.getByText(/Option B: Delay Shoot 1 Day/i)).toBeInTheDocument();
     expect(screen.getByText(/Option C: Convert to Night Shoot/i)).toBeInTheDocument();
     expect(screen.getByText(/Explainability Rationale:/i)).toBeInTheDocument();
   });
@@ -93,7 +93,7 @@ describe("PromoVideo — SPEC §10 Compliance & Component Tests", () => {
     expect(screen.getByText(/HUMAN APPROVAL GATE/i)).toBeInTheDocument();
     expect(screen.getByText(/APPROVED BY PRODUCER/i)).toBeInTheDocument();
     expect(screen.getByText(/Multi-System Autonomous Execution Pipeline/i)).toBeInTheDocument();
-    expect(screen.getByText(/Lock Studio B Soundstage 2 Reservation/i)).toBeInTheDocument();
+    expect(screen.getByText(/Lock Studio B Soundstage Reservation/i)).toBeInTheDocument();
   });
 
   it("renders Scene 8 (Before / After Summary & Resolution)", () => {
@@ -102,4 +102,5 @@ describe("PromoVideo — SPEC §10 Compliance & Component Tests", () => {
     expect(screen.getByText(/WITH AGENTIC FILMOPS \(AI AUTONOMOUS\)/i)).toBeInTheDocument();
     expect(screen.getByText(/\$4,200 \(\$79,800 saved\)/i)).toBeInTheDocument();
   });
+
 });

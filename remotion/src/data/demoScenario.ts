@@ -1,99 +1,109 @@
-import type { ProductionHealth, ActiveIncident, AnalysisData, ExecutionData } from "../types";
-import type { AnalysisEvent } from "../types";
+import demoScenarioRaw from "./demo_scenario.json";
+
+import type {
+  ProductionHealth,
+  ActiveIncident,
+  AnalysisData,
+  ExecutionData,
+  AnalysisEvent,
+  ReplanOption,
+} from "../types";
+
+export const canonicalScenario = demoScenarioRaw;
 
 export const initialHealth: ProductionHealth = {
-  production_day_current: 12,
-  production_day_total: 30,
-  schedule_adherence_percent: 98.4,
-  budget_spent_usd: 1240000,
-  budget_total_usd: 3500000,
-  scenes_completed: 41,
-  scenes_total: 110,
-  overall_risk: "LOW",
-  today_scenes: [
-    { scene_id: "41", name: "Forest Trail Arrival", status: "COMPLETED" },
-    { scene_id: "42", name: "Cliffside Sunset Encounter", status: "IN_PROGRESS" },
-    { scene_id: "43", name: "Basecamp Night Debrief", status: "PENDING" },
-  ],
+  production_day_current: canonicalScenario.production.production_day_current,
+  production_day_total: canonicalScenario.production.production_day_total,
+  schedule_adherence_percent: canonicalScenario.production.schedule_adherence_percent,
+  budget_spent_usd: canonicalScenario.production.budget_spent_usd,
+  budget_total_usd: canonicalScenario.production.budget_total_usd,
+  scenes_completed: canonicalScenario.production.scenes_completed,
+  scenes_total: canonicalScenario.production.scenes_total,
+  overall_risk: canonicalScenario.production.overall_risk,
+  today_scenes: canonicalScenario.today_scenes.map((s) => ({
+    scene_id: s.scene_id.replace("SC-", ""),
+    name: s.name,
+    status: s.status === "COMPLETED" ? "COMPLETED" : s.status === "SHOOTING" ? "IN_PROGRESS" : "PENDING",
+  })),
 };
 
 export const activeIncident: ActiveIncident = {
-  incident_id: "INC-2026-0819-01",
-  type: "WEATHER",
-  scene_id: "42",
-  detail: "Severe thunderstorm warning detected for Cliffside Vista (Scene 42). Precipitation probability 92%, winds >38mph during scheduled golden-hour window.",
-  detected_at: "2026-08-19T14:15:00Z",
-  resolved: false,
+  incident_id: canonicalScenario.incident.incident_id,
+  type: canonicalScenario.incident.type,
+  scene_id: canonicalScenario.incident.scene_id.replace("SC-", ""),
+  detail: canonicalScenario.incident.detail,
+  detected_at: canonicalScenario.incident.detected_at,
+  resolved: canonicalScenario.incident.resolved,
 };
 
 export const mockEvents: AnalysisEvent[] = [
   {
     event_id: "evt-01",
-    timestamp: "14:15:02",
+    timestamp: "14:00:02",
     agent: "Weather Agent",
     tool: "weather_mcp.get_forecast",
     status: "DISPATCHED",
-    detail: "Fetching radar telemetry for Location: Cliffside Vista (Lat 34.025, Lon -118.779)",
+    detail: "Fetching radar telemetry for Location: Rooftop, Shibuya Tower (LOC-003)",
     risk_level: "HIGH",
   },
   {
     event_id: "evt-02",
-    timestamp: "14:15:05",
+    timestamp: "14:00:05",
     agent: "Weather Agent",
     tool: "weather_mcp.get_forecast",
     status: "RESOLVED",
-    detail: "Confirmed severe storm front arriving at 16:30. Outdoor filming impossible.",
+    detail: "Confirmed severe rain (92% probability) arriving at 14:00. Outdoor filming impossible.",
     risk_level: "HIGH",
   },
   {
     event_id: "evt-03",
-    timestamp: "14:15:07",
+    timestamp: "14:00:07",
     agent: "Script Agent",
     tool: "script_mcp.get_scene_breakdown",
     status: "RUNNING",
-    detail: "Analyzing Scene 42 character/location constraints vs available alternative scenes.",
+    detail: "Analyzing Scene 42 constraints: Emma Carter (ACT-001) & Daniel (ACT-002) required.",
     risk_level: "MEDIUM",
   },
   {
     event_id: "evt-04",
-    timestamp: "14:15:10",
+    timestamp: "14:00:10",
     agent: "Location Agent",
-    tool: "location_mcp.check_availability",
+    tool: "location_mcp.find_alternative_locations",
     status: "RUNNING",
-    detail: "Checking immediate availability for Stage 2 (Soundstage Indoor Studio B).",
+    detail: "Checking immediate availability for Studio B Soundstage (LOC-STUDIO-B).",
     risk_level: "LOW",
   },
   {
     event_id: "evt-05",
-    timestamp: "14:15:13",
+    timestamp: "14:00:13",
     agent: "Actor Agent",
-    tool: "actor_mcp.query_talent_availability",
+    tool: "actor_mcp.get_actor_availability",
     status: "RUNNING",
-    detail: "Sending automated availability confirmation to Talent Agency for Actor Marcus Vance.",
+    detail: "Sending automated availability confirmation to Talent Agency for Emma Carter & Daniel.",
     risk_level: "LOW",
   },
   {
     event_id: "evt-06",
-    timestamp: "14:15:16",
+    timestamp: "14:00:16",
     agent: "Equipment Agent",
-    tool: "equipment_mcp.reallocate_lighting_package",
+    tool: "equipment_mcp.reallocate",
     status: "RUNNING",
-    detail: "Re-routing indoor lighting grid & Arri Alexa 35 package from Stage 1 staging area.",
+    detail: "Re-routing ARRI Alexa 35 & Lighting Kit EQ-004 package to Studio B.",
     risk_level: "LOW",
   },
   {
     event_id: "evt-07",
-    timestamp: "14:15:19",
+    timestamp: "14:00:19",
     agent: "Budget Agent",
     tool: "budget_mcp.calculate_variance",
     status: "RUNNING",
-    detail: "Calculating cost variance: Option A swap cost +$4,200 vs $84,000 lost day penalty.",
+    detail: "Calculating cost variance: Option A swap cost +$4,200 vs $84,000 lost day penalty ($79,800 saved).",
     risk_level: "LOW",
   },
   {
     event_id: "evt-08",
-    timestamp: "14:15:23",
-    agent: "Schedule Agent",
+    timestamp: "14:00:23",
+    agent: "Schedule Solver",
     tool: "solver.generate_pareto_replans",
     status: "COMPLETED",
     detail: "Constraint solver completed: 3 validated replan candidates synthesized.",
@@ -102,105 +112,74 @@ export const mockEvents: AnalysisEvent[] = [
 ];
 
 export const mockAnalysis: AnalysisData = {
-  analysis_id: "ANALYSIS-8821-X",
-  incident_id: "INC-2026-0819-01",
+  analysis_id: "ANALYSIS-SC042-01",
+  incident_id: canonicalScenario.incident.incident_id,
   status: "READY_FOR_DECISION",
   decision: null,
-  options: [
-    {
-      option_id: "opt-a",
-      name: "Option A: Swap with Scene 58 (Studio B Interior)",
-      recommended: true,
-      cost_delta_usd: 4200,
-      schedule_delta_days: 0,
-      delay_hours: 1.5,
-      risk_level: "LOW",
-      confidence: 0.94,
-      summary: "Swap outdoor Scene 42 with indoor Scene 58 on Stage 2. Same principal cast, zero schedule drift.",
-      pros: [
-        "100% weather protected on Stage 2 soundstage",
-        "Lead actors already in wardrobe & proximity",
-        "Zero delay to 30-day principal wrap deadline",
-      ],
-      cons: ["Requires 1.5h lighting reconfiguration in Studio B"],
-      explainability: {
-        rationale: "Constraint solver identified Scene 58 shares identical cast (Marcus Vance & Elena Rostova) and Stage 2 is pre-lit with indoor standing set. Swapping saves $79,800 in idle crew turnaround costs.",
-        tradeoff_score: 9.6,
-      },
+  options: canonicalScenario.options.map((opt): ReplanOption => ({
+    option_id: opt.option_id,
+    name: opt.label,
+    recommended: opt.recommended,
+    cost_delta_usd: opt.cost_impact,
+    schedule_delta_days: opt.schedule_delay_days,
+    delay_hours: opt.delay_hours,
+    risk_level: opt.risk,
+    confidence: opt.recommended ? 0.96 : opt.risk === "MEDIUM" ? 0.81 : 0.68,
+    summary: opt.summary,
+    pros: opt.recommended
+      ? [
+          "100% weather protected in Studio B soundstage",
+          "Emma Carter & Daniel confirmed available",
+          "Zero wrap date drift on 54-day schedule",
+        ]
+      : opt.option_id === "OPT-B"
+      ? ["Preserves original rooftop visual aesthetic"]
+      : ["High dramatic aesthetic value with wet look", "No soundstage relocation"],
+    cons: opt.recommended
+      ? ["Requires 1.5h lighting reconfiguration in Studio B"]
+      : opt.option_id === "OPT-B"
+      ? ["+$42,000 in union standby pay", "Pushes production timeline back by 1 day"]
+      : ["High electrical safety risk on wet rooftop", "Requires script rewrite approval"],
+    explainability: {
+      rationale: opt.explainability.rationale,
+      tradeoff_score: opt.explainability.tradeoff_score,
     },
-    {
-      option_id: "opt-b",
-      name: "Option B: Stand Down Crew & Delay 1 Day",
-      recommended: false,
-      cost_delta_usd: 42000,
-      schedule_delta_days: 1,
-      delay_hours: 10.0,
-      risk_level: "MEDIUM",
-      confidence: 0.81,
-      summary: "Hold production until storm passes tomorrow afternoon. Extend Cliffside permit.",
-      pros: ["Preserves original natural golden-hour cliffside look"],
-      cons: [
-        "+$42,000 in union standby pay & permit extension",
-        "Pushes entire production timeline back by 1 day",
-      ],
-      explainability: {
-        rationale: "Maintains original visual aesthetic but triggers significant overtime and overtime penalty rates.",
-        tradeoff_score: 5.4,
-      },
-    },
-    {
-      option_id: "opt-c",
-      name: "Option C: Convert to Night Shoot with Wet-Down Look",
-      recommended: false,
-      cost_delta_usd: 18500,
-      schedule_delta_days: 0,
-      delay_hours: 3.5,
-      risk_level: "HIGH",
-      confidence: 0.68,
-      summary: "Embrace rain atmosphere with heavy industrial lighting package and rain towers.",
-      pros: ["High dramatic aesthetic value", "No soundstage relocation"],
-      cons: ["High electrical safety risk on wet cliffside", "Requires script supervisor rewrite approval"],
-      explainability: {
-        rationale: "Creative pivot but introduces hazardous environmental safety conditions.",
-        tradeoff_score: 4.2,
-      },
-    },
-  ],
+  })),
 };
 
 export const mockExecution: ExecutionData = {
-  execution_id: "EXEC-9910-A",
-  analysis_id: "ANALYSIS-8821-X",
-  selected_option_id: "opt-a",
+  execution_id: "EXEC-SC042-01",
+  analysis_id: "ANALYSIS-SC042-01",
+  selected_option_id: "OPT-A",
   status: "COMPLETED",
   tasks: [
     {
       task_id: "task-1",
-      title: "Lock Studio B Soundstage 2 Reservation",
+      title: "Lock Studio B Soundstage Reservation",
       system: "Location MCP",
       status: "COMPLETED",
-      details: "Stage 2 booked from 15:00 - 22:00. Facility manager confirmed.",
+      details: "Studio B booked from 16:00 - 20:00. Facility manager confirmed.",
     },
     {
       task_id: "task-2",
-      title: "Dispatch Automated Call Sheets via SMS",
-      system: "Communication Service",
+      title: "Dispatch Automated Call Sheets to Emma & Daniel",
+      system: "Actor MCP & Comms",
       status: "COMPLETED",
-      details: "Notified 48 crew members & 2 principal talent of location pivot.",
+      details: "Talent Agency confirmed: Emma Carter & Daniel call sheets updated.",
     },
     {
       task_id: "task-3",
-      title: "Re-route CineRent Lighting Package B to Stage 2",
+      title: "Re-route ARRI Alexa 35 & Lighting Kit EQ-004",
       system: "Equipment MCP",
       status: "COMPLETED",
-      details: "Truck dispatched from basecamp. ETA 15 minutes.",
+      details: "Cinema Rental Tokyo: Alexa 35 & Lighting Kit re-routed to Studio B.",
     },
     {
       task_id: "task-4",
-      title: "Publish Revised Master Schedule & Script Notes",
+      title: "Publish Revised Master Production Schedule",
       system: "Script & Schedule Solver",
       status: "COMPLETED",
-      details: "Production schedule updated: Day 12 wrap at 20:30 on track.",
+      details: "Day 27 shooting slate updated. Scene 42 rescheduled with zero wrap delay.",
     },
   ],
 };
@@ -215,7 +194,7 @@ export const subtitleTracks = [
   {
     startFrame: 150,
     endFrame: 450,
-    text: "Day 12 of Production: A sudden severe thunderstorm alert threatens critical outdoor filming on Scene 42.",
+    text: "Day 27 of Production: Sudden heavy rain threatens critical outdoor rooftop filming on Scene 42.",
     speaker: "NARRATOR",
   },
   {
@@ -233,19 +212,19 @@ export const subtitleTracks = [
   {
     startFrame: 1350,
     endFrame: 1650,
-    text: "The Actor Agent negotiates with talent agency management, confirming cast availability in under 30 seconds.",
+    text: "The Actor Agent negotiates with talent agency management, confirming cast availability for Emma Carter in under 30 seconds.",
     speaker: "NARRATOR",
   },
   {
     startFrame: 1650,
     endFrame: 2100,
-    text: "Constraint solvers evaluate trade-offs and present 3 explainable recovery options. Option A saves $79,800 and 3 hours.",
+    text: "Constraint solvers evaluate trade-offs and present 3 explainable recovery options. Option A saves $79,800 and avoids schedule drift.",
     speaker: "NARRATOR",
   },
   {
     startFrame: 2100,
     endFrame: 2400,
-    text: "With a single Human Producer approval, autonomous execution coordinates call sheets, soundstages, and logistics.",
+    text: "With a single Human Producer approval, autonomous execution coordinates call sheets, soundstages, and camera packages.",
     speaker: "NARRATOR",
   },
   {
