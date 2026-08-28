@@ -5,6 +5,8 @@ import type { ExecutionData } from "@/lib/api";
 
 interface ExecutionChecklistProps {
   execution: ExecutionData;
+  onRetry?: () => void;
+  retrying?: boolean;
 }
 
 interface ExecutionItem {
@@ -59,20 +61,23 @@ const SPEC_EXECUTION_ITEMS: ExecutionItem[] = [
   },
 ];
 
-export function ExecutionChecklist({ execution }: ExecutionChecklistProps) {
+export function ExecutionChecklist({ execution, onRetry, retrying }: ExecutionChecklistProps) {
   const isCompleted = execution.status === "COMPLETED";
+  const isFailed = execution.status === "FAILED";
 
   // Determine completed item count
   const completedCount = useMemo(() => {
     if (isCompleted) return SPEC_EXECUTION_ITEMS.length;
-    // When in progress, calculate based on returned steps or minimum 2
-    return Math.max(1, Math.min(execution.steps.length, SPEC_EXECUTION_ITEMS.length - 1));
+    // When in progress or failed, calculate based on returned steps or minimum 1
+    return Math.max(0, Math.min(execution.steps.length, SPEC_EXECUTION_ITEMS.length - 1));
   }, [isCompleted, execution.steps.length]);
 
   return (
     <section
       aria-label="Execution Checklist Screen"
-      className="mt-4 rounded-lg border border-emerald-500/30 bg-zinc-950 p-5 shadow-2xl space-y-5"
+      className={`mt-4 rounded-lg border bg-zinc-950 p-5 shadow-2xl space-y-5 ${
+        isFailed ? "border-rose-500/40" : "border-emerald-500/30"
+      }`}
     >
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-3">
@@ -81,30 +86,59 @@ export function ExecutionChecklist({ execution }: ExecutionChecklistProps) {
             <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-black text-black">
               ✓
             </span>
+          ) : isFailed ? (
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white">
+              ✕
+            </span>
           ) : (
             <span className="relative flex h-3 w-3">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
             </span>
           )}
-          <h3 className="text-xs font-bold tracking-wider text-emerald-300 uppercase">
-            {isCompleted ? "Plan Execution Complete" : "Executing Plan…"}
+          <h3
+            className={`text-xs font-bold tracking-wider uppercase ${
+              isFailed ? "text-rose-300" : "text-emerald-300"
+            }`}
+          >
+            {isCompleted ? "Plan Execution Complete" : isFailed ? "Plan Execution Failed" : "Executing Plan…"}
           </h3>
-          <span className="rounded bg-emerald-950/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-800/40">
+          <span
+            className={`rounded px-2 py-0.5 text-[10px] font-semibold border ${
+              isFailed
+                ? "bg-rose-950/80 text-rose-400 border-rose-800/40"
+                : "bg-emerald-950/80 text-emerald-400 border-emerald-800/40"
+            }`}
+          >
             SPEC §9.10
           </span>
         </div>
 
-        <span
-          className={`rounded px-2 py-0.5 text-[10px] font-bold tracking-wide ${
-            isCompleted
-              ? "border border-emerald-500/50 bg-emerald-900/60 text-emerald-300"
-              : "border border-amber-500/50 bg-amber-900/60 text-amber-300 animate-pulse"
-          }`}
-        >
-          {execution.status}
-        </span>
+        <div className="flex items-center gap-2">
+          {isFailed && onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              disabled={retrying}
+              className="rounded bg-rose-600/80 hover:bg-rose-500 px-2.5 py-0.5 text-[11px] font-bold text-white transition-colors disabled:opacity-50"
+            >
+              {retrying ? "Retrying…" : "Retry Execution"}
+            </button>
+          )}
+          <span
+            className={`rounded px-2 py-0.5 text-[10px] font-bold tracking-wide ${
+              isCompleted
+                ? "border border-emerald-500/50 bg-emerald-900/60 text-emerald-300"
+                : isFailed
+                ? "border border-rose-500/50 bg-rose-900/60 text-rose-300"
+                : "border border-amber-500/50 bg-amber-900/60 text-amber-300 animate-pulse"
+            }`}
+          >
+            {execution.status}
+          </span>
+        </div>
       </div>
+
 
       {/* 2-Column Execution Grid: Left = Checklist Animation, Right = MCP Activity */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">

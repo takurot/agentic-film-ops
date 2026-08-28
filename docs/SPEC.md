@@ -170,8 +170,8 @@ MCP   = Access / Action（アクセス・実行）
 | `GET` | `/api/incidents/active` | Active Incident 一覧取得 |
 | `POST` | `/api/incidents/{incident_id}/analyze` | 「START AI IMPACT ANALYSIS」起動。非同期jobを作成し **202 Accepted** と `{ analysis_id, status: "QUEUED" }` を即時返却。Orchestratorパイプライン（[6.1](#61-production-orchestrator)）を非同期実行 |
 | `GET` | `/api/analyses/{analysis_id}` | 分析の現在状態（QUEUED / ANALYZING / COMPLETED / FAILED、代替案・Explainability含む）取得 |
-| `POST` | `/api/analyses/{analysis_id}/decision` | Human Approval（[9.9](#99-human-approval)）。`{ "decision": "APPROVE" \| "REJECT", "option_id": "..." }` |
-| `GET` | `/api/analyses/{analysis_id}/execution` | Execution 結果取得（[9.10](#910-execution-画面)） |
+| `POST` | `/api/analyses/{analysis_id}/decision` | Human Approval（[9.9](#99-human-approval)）。`{ "decision": "APPROVE" \| "REJECT", "option_id": "...", "idempotency_key": "..." }`（Header `Idempotency-Key` も可）。冪等二重送信・部分失敗時の安全な再試行（完了済みstepをスキップして再開）に対応。 |
+| `GET` | `/api/analyses/{analysis_id}/execution` | Execution 結果取得（[9.10](#910-execution-画面)）。`status`（`NOT_STARTED` / `QUEUED` / `IN_PROGRESS` / `COMPLETED` / `FAILED`）、`steps`、`step_records` を返却。 |
 
 #### イベント配信（WebSocket / SSE）
 
@@ -184,6 +184,7 @@ MCP   = Access / Action（アクセス・実行）
 
 - `POST /api/analyses/{analysis_id}/decision` 以外の経路でOrchestratorの状態を変更するAPIを追加してはならない（[3.2](#32-アーキテクチャ原則必須制約)）
 - Dashboardは上記APIとイベントストリームのみに依存し、Agent/MCPのエンドポイントやスキーマを直接知らない設計とする
+
 
 
 ---

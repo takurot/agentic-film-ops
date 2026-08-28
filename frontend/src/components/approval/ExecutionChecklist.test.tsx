@@ -63,4 +63,29 @@ describe("ExecutionChecklist", () => {
     expect(screen.getByText(/executing plan…/i)).toBeInTheDocument();
     expect(screen.getByText(/MCP Activity/i)).toBeInTheDocument();
   });
+
+  it("renders failed state correctly and triggers retry on button click", () => {
+    let retried = false;
+    const failedExecution: ExecutionData = {
+      analysis_id: "AN-test-123",
+      status: "FAILED",
+      steps: ["Location LOC-STUDIO-B confirmed"],
+    };
+
+    render(
+      <ExecutionChecklist
+        execution={failedExecution}
+        onRetry={() => {
+          retried = true;
+        }}
+      />
+    );
+
+    expect(screen.getByText(/plan execution failed/i)).toBeInTheDocument();
+    const retryBtn = screen.getByRole("button", { name: /retry execution/i });
+    expect(retryBtn).toBeInTheDocument();
+    retryBtn.click();
+    expect(retried).toBe(true);
+  });
 });
+

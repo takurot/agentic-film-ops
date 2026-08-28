@@ -42,7 +42,7 @@ export interface ActiveIncident {
 
 export type AnalysisStatus = "QUEUED" | "ANALYZING" | "COMPLETED" | "FAILED";
 export type Decision = "APPROVE" | "REJECT";
-export type ExecutionStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+export type ExecutionStatus = "NOT_STARTED" | "QUEUED" | "IN_PROGRESS" | "COMPLETED" | "FAILED";
 
 export interface ReplanOption {
   option_id: string;
@@ -79,6 +79,7 @@ export interface ExecutionData {
   analysis_id: string;
   status: ExecutionStatus;
   steps: string[];
+  step_records?: Array<Record<string, unknown>> | null;
 }
 
 export interface RuntimeInfo {
@@ -96,10 +97,12 @@ export interface LiveApiClient {
   fetchActiveIncidents(signal?: AbortSignal): Promise<ActiveIncident[]>;
   startAnalysis(incidentId: string, signal?: AbortSignal): Promise<{ analysis_id: string }>;
   fetchAnalysis(analysisId: string, signal?: AbortSignal): Promise<AnalysisData>;
-  submitDecision(analysisId: string, decision: Decision, optionId?: string, signal?: AbortSignal): Promise<AnalysisData>;
+  submitDecision(analysisId: string, decision: Decision, optionId?: string, signal?: AbortSignal, idempotencyKey?: string): Promise<AnalysisData>;
   fetchExecution(analysisId: string, signal?: AbortSignal): Promise<ExecutionData>;
   resetDemoState(signal?: AbortSignal): Promise<{ status: string; message: string }>;
 }
+
+
 
 const MAX_RESPONSE_BYTES = 1_000_000;
 const isObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -184,9 +187,9 @@ const isAnalysis = (value: unknown): value is AnalysisData => isObject(value) &&
   (value.explainability === null || isShortString(value.explainability)) &&
   (value.decision === null || value.decision === "APPROVE" || value.decision === "REJECT") &&
   (value.decided_option_id === null || isShortString(value.decided_option_id, 200)) &&
-  ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"].includes(value.execution_status as string);
+  ["NOT_STARTED", "QUEUED", "IN_PROGRESS", "COMPLETED", "FAILED"].includes(value.execution_status as string);
 const isExecution = (value: unknown): value is ExecutionData => isObject(value) && isShortString(value.analysis_id, 200) &&
-  ["NOT_STARTED", "IN_PROGRESS", "COMPLETED"].includes(value.status as string) && Array.isArray(value.steps) && value.steps.length <= 100 && value.steps.every((step) => isShortString(step));
+  ["NOT_STARTED", "QUEUED", "IN_PROGRESS", "COMPLETED", "FAILED"].includes(value.status as string) && Array.isArray(value.steps) && value.steps.length <= 100 && value.steps.every((step) => isShortString(step));
 const isAnalysisId = (value: unknown): value is { analysis_id: string } => isObject(value) && isShortString(value.analysis_id, 200);
 const isReset = (value: unknown): value is { status: string; message: string } => isObject(value) && isShortString(value.status, 100) && isShortString(value.message);
 
@@ -225,7 +228,12 @@ const parseAnalysis = (value: unknown): AnalysisData | null => isAnalysis(value)
   options: value.options.map(parseOption), explainability: value.explainability, decision: value.decision,
   decided_option_id: value.decided_option_id, execution_status: value.execution_status,
 } : null;
-const parseExecution = (value: unknown): ExecutionData | null => isExecution(value) ? { analysis_id: value.analysis_id, status: value.status, steps: [...value.steps] } : null;
+const parseExecution = (value: unknown): ExecutionData | null => isExecution(value) ? {
+  analysis_id: value.analysis_id,
+  status: value.status,
+  steps: [...value.steps],
+  ...(Array.isArray(value.step_records) ? { step_records: value.step_records } : {}),
+} : null;
 const parseAnalysisId = (value: unknown): { analysis_id: string } | null => isAnalysisId(value) ? { analysis_id: value.analysis_id } : null;
 const parseReset = (value: unknown): { status: string; message: string } | null => isReset(value) ? { status: value.status, message: value.message } : null;
 
@@ -251,13 +259,22 @@ export function createLiveApiClient(config: PublicRuntimeConfig): LiveApiClient 
     fetchActiveIncidents: (signal) => requestJson(`${base}/api/incidents/active`, { signal, cache: "no-store" }, parseIncidents),
     startAnalysis: (incidentId, signal) => requestJson(`${base}/api/incidents/${encodeURIComponent(incidentId)}/analyze`, { method: "POST", signal }, parseAnalysisId, 180_000),
     fetchAnalysis: (analysisId, signal) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}`, { signal, cache: "no-store" }, parseAnalysis),
-    submitDecision: (analysisId, decision, optionId, signal) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}/decision`, {
+    submitDecision: (analysisId, decision, optionId, signal, idempotencyKey) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}/decision`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(optionId ? { decision, option_id: optionId } : { decision }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+      },
+      body: JSON.stringify({
+        decision,
+        ...(optionId ? { option_id: optionId } : {}),
+        ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+      }),
       signal,
     }, parseAnalysis, 180_000),
+
     fetchExecution: (analysisId, signal) => requestJson(`${base}/api/analyses/${encodeURIComponent(analysisId)}/execution`, { signal, cache: "no-store" }, parseExecution),
     resetDemoState: (signal) => requestJson(`${base}/api/demo/reset`, { method: "POST", signal }, parseReset),
   };
 }
+

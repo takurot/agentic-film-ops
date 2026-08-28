@@ -39,13 +39,23 @@ from app.events import (
 from app.gemini_client import GeminiClient, GeminiResponseValidationError, GeminiUnavailableError
 from app.mcp_client import InProcessMCPClient, MCPClient, MCPError
 from app.models import Scene
-from app.workflow import AnalysisEngine, AnalysisOutcome, Incident
+from app.workflow import Analysis, AnalysisEngine, AnalysisOutcome, Incident
 
 AGENT_NAME = "ProductionOrchestrator"
 
 
 class DomainAnalysisError(RuntimeError):
     """A required domain result was unavailable or unusable."""
+
+
+class ExecutionStepError(RuntimeError):
+    """Raised when a specific plan execution step fails."""
+
+    def __init__(self, step_id: str, error_code: str, cause: BaseException) -> None:
+        super().__init__(f"Step {step_id} failed with {error_code}: {cause}")
+        self.step_id = step_id
+        self.error_code = error_code
+        self.cause = cause
 
 
 async def _gather_fail_fast(*awaitables):
@@ -423,94 +433,258 @@ class ProductionOrchestrator(AnalysisEngine):
             resource=scene_id,
         )
 
-        steps: list[str] = []
-
-        # 1. Confirm Location booking
-        await self._mcp_client.call(
-            "location",
-            "confirm_location",
-            {
-                "location_id": new_loc_id,
-                "scene_id": scene_id,
-                "start": start_time,
-                "end": end_time,
-            },
-        )
-        steps.append(f"Location {new_loc_id} confirmed ({start_time} - {end_time})")
-        self._publish(
-            analysis_id,
-            "ANALYZING",
-            f"✓ Location {new_loc_id} confirmed",
-            type="EXECUTION",
-            resource=new_loc_id,
-        )
-
-        # 2. Confirm Actor booking updates
         with get_session(self._db_engine) if db is None else _db_context(db) as session:
-            scene = session.get(Scene, scene_id)
-            if scene:
-                for actor in scene.actors:
-                    await self._mcp_client.call("actor", "confirm_actor", {"actor_id": actor.id})
-                    steps.append(f"Actor {actor.name} ({actor.id}) booking confirmed")
-                    self._publish(
-                        analysis_id,
-                        "ANALYZING",
-                        f"✓ Actor booking updated: {actor.name}",
-                        type="EXECUTION",
-                        resource=actor.id,
-                    )
+            analysis = session.get(Analysis, analysis_id)
+            if analysis is None:
+                analysis = Analysis(
+                    analysis_id=analysis_id,
+                    incident_id=incident_id,
+                    status="COMPLETED",
+                    execution_status="IN_PROGRESS",
+                    execution_steps=[],
+                )
+                session.add(analysis)
+                session.commit()
 
-                # 3. Reserve Equipment
-                for eq in scene.equipment:
+            raw_steps = list(analysis.execution_steps or [])
+            step_map: dict[str, dict[str, Any]] = {}
+            for s in raw_steps:
+                if isinstance(s, dict) and "step_id" in s:
+                    step_map[s["step_id"]] = dict(s)
+
+            def get_step_status(step_id: str) -> str:
+                return step_map.get(step_id, {}).get("status", "PENDING")
+
+            def save_step(
+                step_id: str,
+                label: str,
+                status: str,
+                *,
+                error_code: str | None = None,
+                error_message: str | None = None,
+                details: str | None = None,
+            ) -> None:
+                record = step_map.get(
+                    step_id,
+                    {
+                        "step_id": step_id,
+                        "label": label,
+                        "status": "PENDING",
+                        "attempt": 0,
+                    },
+                )
+                record["status"] = status
+                if status == "IN_PROGRESS":
+                    record["attempt"] = record.get("attempt", 0) + 1
+                    record["started_at"] = datetime.now().isoformat()
+                elif status in ("COMPLETED", "FAILED"):
+                    record["finished_at"] = datetime.now().isoformat()
+                if error_code:
+                    record["error_code"] = error_code
+                if error_message:
+                    record["error_message"] = error_message
+                if details:
+                    record["details"] = details
+                step_map[step_id] = record
+                analysis.execution_steps = list(step_map.values())
+                session.commit()
+
+            steps: list[str] = []
+
+            # Step 1: Confirm Location
+            step_id = "CONFIRM_LOCATION"
+            label = f"Location {new_loc_id} confirmed"
+            if get_step_status(step_id) == "COMPLETED":
+                steps.append(step_map[step_id].get("details") or label)
+            else:
+                save_step(step_id, label, "IN_PROGRESS")
+                try:
                     await self._mcp_client.call(
-                        "equipment",
-                        "reserve_equipment",
+                        "location",
+                        "confirm_location",
                         {
-                            "equipment_id": eq.id,
+                            "location_id": new_loc_id,
                             "scene_id": scene_id,
                             "start": start_time,
                             "end": end_time,
                         },
                     )
-                    steps.append(f"Equipment {eq.name} ({eq.id}) reservation extended")
+                    details = f"Location {new_loc_id} confirmed ({start_time} - {end_time})"
+                    save_step(step_id, label, "COMPLETED", details=details)
+                    steps.append(details)
                     self._publish(
                         analysis_id,
                         "ANALYZING",
-                        f"✓ Equipment reserved: {eq.name}",
+                        f"✓ Location {new_loc_id} confirmed",
                         type="EXECUTION",
-                        resource=eq.id,
+                        resource=new_loc_id,
                     )
+                except BaseException as exc:
+                    err_code = _public_failure_code(exc)
+                    save_step(step_id, label, "FAILED", error_code=err_code, error_message=str(exc))
+                    analysis.execution_status = "FAILED"
+                    session.commit()
+                    self._publish(
+                        analysis_id,
+                        "FAILED",
+                        f"Location confirmation failed: {exc}",
+                        type="EXECUTION_FAILED",
+                        resource=new_loc_id,
+                    )
+                    raise ExecutionStepError(step_id, err_code, exc) from exc
 
-                # 4. Update Scene schedule and location in Resource Graph
-                scene.location_id = new_loc_id
-                scene.scheduled = datetime.fromisoformat(start_time)
-                session.add(scene)
-                steps.append(f"Scene {scene_id} schedule updated to {start_time} at {new_loc_id}")
-                self._publish(
-                    analysis_id,
-                    "ANALYZING",
-                    f"✓ Production Schedule updated for {scene_id}",
-                    type="EXECUTION",
-                    resource=scene_id,
-                )
+            # Step 2: Confirm Actors
+            step_id = "CONFIRM_ACTORS"
+            label = "Actor bookings confirmed"
+            if get_step_status(step_id) == "COMPLETED":
+                steps.append(step_map[step_id].get("details") or label)
+            else:
+                save_step(step_id, label, "IN_PROGRESS")
+                try:
+                    scene = session.get(Scene, scene_id)
+                    actor_details = []
+                    if scene:
+                        for actor in scene.actors:
+                            await self._mcp_client.call(
+                                "actor", "confirm_actor", {"actor_id": actor.id}
+                            )
+                            d = f"Actor {actor.name} ({actor.id}) booking confirmed"
+                            actor_details.append(d)
+                            self._publish(
+                                analysis_id,
+                                "ANALYZING",
+                                f"✓ Actor booking updated: {actor.name}",
+                                type="EXECUTION",
+                                resource=actor.id,
+                            )
+                    details = "; ".join(actor_details) if actor_details else label
+                    save_step(step_id, label, "COMPLETED", details=details)
+                    steps.extend(actor_details)
+                except BaseException as exc:
+                    err_code = _public_failure_code(exc)
+                    save_step(step_id, label, "FAILED", error_code=err_code, error_message=str(exc))
+                    analysis.execution_status = "FAILED"
+                    session.commit()
+                    self._publish(
+                        analysis_id,
+                        "FAILED",
+                        f"Actor booking confirmation failed: {exc}",
+                        type="EXECUTION_FAILED",
+                        resource=scene_id,
+                    )
+                    raise ExecutionStepError(step_id, err_code, exc) from exc
 
-            # 5. Mark Incident resolved
-            incident = session.get(Incident, incident_id)
-            if incident:
-                incident.resolved = True
-                session.add(incident)
-                steps.append(f"Incident {incident_id} marked resolved")
-                self._publish(
-                    analysis_id,
-                    "COMPLETED",
-                    f"✓ Incident {incident_id} resolved: closed-loop execution complete",
-                    type="EXECUTION",
-                    resource=incident_id,
-                )
+            # Step 3: Reserve Equipment
+            step_id = "RESERVE_EQUIPMENT"
+            label = "Equipment reservations confirmed"
+            if get_step_status(step_id) == "COMPLETED":
+                steps.append(step_map[step_id].get("details") or label)
+            else:
+                save_step(step_id, label, "IN_PROGRESS")
+                try:
+                    scene = session.get(Scene, scene_id)
+                    equip_details = []
+                    if scene:
+                        for eq in scene.equipment:
+                            await self._mcp_client.call(
+                                "equipment",
+                                "reserve_equipment",
+                                {
+                                    "equipment_id": eq.id,
+                                    "scene_id": scene_id,
+                                    "start": start_time,
+                                    "end": end_time,
+                                },
+                            )
+                            d = f"Equipment {eq.name} ({eq.id}) reservation extended"
+                            equip_details.append(d)
+                            self._publish(
+                                analysis_id,
+                                "ANALYZING",
+                                f"✓ Equipment reserved: {eq.name}",
+                                type="EXECUTION",
+                                resource=eq.id,
+                            )
+                    details = "; ".join(equip_details) if equip_details else label
+                    save_step(step_id, label, "COMPLETED", details=details)
+                    steps.extend(equip_details)
+                except BaseException as exc:
+                    err_code = _public_failure_code(exc)
+                    save_step(step_id, label, "FAILED", error_code=err_code, error_message=str(exc))
+                    analysis.execution_status = "FAILED"
+                    session.commit()
+                    self._publish(
+                        analysis_id,
+                        "FAILED",
+                        f"Equipment reservation failed: {exc}",
+                        type="EXECUTION_FAILED",
+                        resource=scene_id,
+                    )
+                    raise ExecutionStepError(step_id, err_code, exc) from exc
 
-            session.commit()
+            # Step 4: Update Scene in DB
+            step_id = "UPDATE_SCENE"
+            label = f"Scene {scene_id} schedule updated"
+            if get_step_status(step_id) == "COMPLETED":
+                steps.append(step_map[step_id].get("details") or label)
+            else:
+                save_step(step_id, label, "IN_PROGRESS")
+                try:
+                    scene = session.get(Scene, scene_id)
+                    if scene:
+                        scene.location_id = new_loc_id
+                        scene.scheduled = datetime.fromisoformat(start_time)
+                        session.add(scene)
+                        session.commit()
+                    details = f"Scene {scene_id} schedule updated to {start_time} at {new_loc_id}"
+                    save_step(step_id, label, "COMPLETED", details=details)
+                    steps.append(details)
+                    self._publish(
+                        analysis_id,
+                        "ANALYZING",
+                        f"✓ Production Schedule updated for {scene_id}",
+                        type="EXECUTION",
+                        resource=scene_id,
+                    )
+                except BaseException as exc:
+                    err_code = "DB_UPDATE_FAILED"
+                    save_step(step_id, label, "FAILED", error_code=err_code, error_message=str(exc))
+                    analysis.execution_status = "FAILED"
+                    session.commit()
+                    raise ExecutionStepError(step_id, err_code, exc) from exc
 
-        return steps
+            # Step 5: Mark Incident Resolved
+            step_id = "RESOLVE_INCIDENT"
+            label = f"Incident {incident_id} marked resolved"
+            if get_step_status(step_id) == "COMPLETED":
+                steps.append(step_map[step_id].get("details") or label)
+            else:
+                save_step(step_id, label, "IN_PROGRESS")
+                try:
+                    incident = session.get(Incident, incident_id)
+                    if incident:
+                        incident.resolved = True
+                        session.add(incident)
+                    analysis.execution_status = "COMPLETED"
+                    session.commit()
+                    details = f"Incident {incident_id} marked resolved"
+                    save_step(step_id, label, "COMPLETED", details=details)
+                    steps.append(details)
+                    self._publish(
+                        analysis_id,
+                        "COMPLETED",
+                        f"✓ Incident {incident_id} resolved: closed-loop execution complete",
+                        type="EXECUTION_COMPLETED",
+                        resource=incident_id,
+                    )
+                except BaseException as exc:
+                    err_code = "DB_UPDATE_FAILED"
+                    save_step(step_id, label, "FAILED", error_code=err_code, error_message=str(exc))
+                    analysis.execution_status = "FAILED"
+                    session.commit()
+                    raise ExecutionStepError(step_id, err_code, exc) from exc
+
+            return steps
 
     def _publish(
         self,
