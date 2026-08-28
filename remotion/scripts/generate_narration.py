@@ -1,5 +1,16 @@
+"""Generate voiceover audio assets using macOS TTS and FFmpeg (Issue #86).
+
+On macOS: synthesizes narration_1.wav .. narration_8.wav into remotion/public/audio/.
+On Linux/CI: relies on the versioned audio assets already committed in public/audio/.
+"""
+
 import os
+import shutil
 import subprocess
+import sys
+from pathlib import Path
+
+AUDIO_DIR = Path(__file__).resolve().parent.parent / "public" / "audio"
 
 NARRATIONS = [
     {
@@ -9,7 +20,7 @@ NARRATIONS = [
     },
     {
         "id": "narration_2",
-        "text": "Day 12 of Production: A sudden severe thunderstorm alert threatens critical outdoor filming on Scene 42.",
+        "text": "Day 27 of Production: A sudden severe thunderstorm alert threatens critical outdoor filming on Scene 42.",
         "rate": "180",
     },
     {
@@ -24,12 +35,12 @@ NARRATIONS = [
     },
     {
         "id": "narration_5",
-        "text": "The Actor Agent negotiates with talent agency management, confirming cast availability in under 30 seconds.",
+        "text": "The Actor Agent negotiates with talent agency management, confirming cast availability for Emma Carter in under 30 seconds.",
         "rate": "180",
     },
     {
         "id": "narration_6",
-        "text": "Constraint solvers evaluate trade-offs and present three explainable recovery options. Option A saves seventy-nine thousand eight hundred dollars and three hours.",
+        "text": "Constraint solvers evaluate trade-offs and present three explainable recovery options. Option A saves seventy-nine thousand eight hundred dollars with zero schedule delay.",
         "rate": "185",
     },
     {
@@ -44,27 +55,42 @@ NARRATIONS = [
     },
 ]
 
+
 def generate_narrations():
-    out_dir = "/Users/takurot/src/agentic-film-ops/remotion/public/audio"
-    os.makedirs(out_dir, exist_ok=True)
+    if sys.platform != "darwin" or not shutil.which("say"):
+        print("[INFO] 'say' command not available (non-macOS system). Using existing committed audio assets.")
+        return
+
+    if not shutil.which("ffmpeg"):
+        print("[WARNING] 'ffmpeg' not found. Cannot convert AIFF to WAV. Using existing committed audio assets.")
+        return
+
+    AUDIO_DIR.mkdir(parents=True, exist_ok=True)
 
     for item in NARRATIONS:
-        aiff_path = f"/tmp/{item['id']}.aiff"
-        wav_path = os.path.join(out_dir, f"{item['id']}.wav")
-        
-        cmd_say = ["say", "-v", "Samantha", "-r", item.get("rate", "180"), item["text"], "-o", aiff_path]
+        aiff_path = Path(f"/tmp/{item['id']}.aiff")
+        wav_path = AUDIO_DIR / f"{item['id']}.wav"
+
+        cmd_say = ["say", "-v", "Samantha", "-r", item.get("rate", "180"), item["text"], "-o", str(aiff_path)]
         subprocess.run(cmd_say, check=True)
-        
+
         cmd_ffmpeg = [
-            "ffmpeg", "-y", "-i", aiff_path,
-            "-ar", "44100", "-ac", "2",
-            wav_path
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(aiff_path),
+            "-ar",
+            "44100",
+            "-ac",
+            "2",
+            str(wav_path),
         ]
         subprocess.run(cmd_ffmpeg, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
-        if os.path.exists(aiff_path):
-            os.remove(aiff_path)
-            
-        print(f"Generated: {wav_path}")
+        if aiff_path.exists():
+            aiff_path.unlink()
+
+        print(f"Generated: {wav_path.relative_to(AUDIO_DIR.parent.parent)}")
+
 
 if __name__ == "__main__":
     generate_narrations()

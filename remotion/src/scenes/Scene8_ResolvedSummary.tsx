@@ -103,7 +103,7 @@ export const Scene8_ResolvedSummary: React.FC = () => {
           </div>
         </UIWrapper>
       ) : (
-        /* Final Outro Screen */
+        /* Final Outro Screen (Issue #86 CTA & Judge Verification) */
         <div
           style={{ transform: `scale(${outroScale})` }}
           className="relative flex h-full w-full flex-col items-center justify-center text-center p-8"
@@ -111,9 +111,9 @@ export const Scene8_ResolvedSummary: React.FC = () => {
           <div className="pointer-events-none absolute h-[600px] w-[800px] rounded-full bg-gradient-to-tr from-emerald-500/25 via-teal-500/20 to-cyan-500/15 blur-3xl" />
 
           <div className="relative z-10 flex flex-col items-center">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 p-0.5 shadow-2xl shadow-emerald-500/40">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-cyan-500 p-0.5 shadow-2xl shadow-emerald-500/40">
               <div className="flex h-full w-full items-center justify-center rounded-2xl bg-zinc-950">
-                <span className="text-4xl">🎬</span>
+                <span className="text-3xl">🎬</span>
               </div>
             </div>
 
@@ -121,15 +121,52 @@ export const Scene8_ResolvedSummary: React.FC = () => {
               AGENTIC FILM OPS
             </h1>
 
-            <p className="mt-4 text-xl font-medium text-zinc-200">
+            <p className="mt-2 text-lg font-medium text-zinc-200">
               Autonomous Disruption Recovery for Film & TV Production
             </p>
 
-            <div className="mt-8 flex items-center gap-4 rounded-full border border-emerald-500/40 bg-zinc-900/90 px-8 py-3 shadow-2xl">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-ping" />
-              <span className="font-mono text-xs font-bold text-emerald-300 tracking-widest uppercase">
-                Gemini 2.5 Flash • Google Gen AI SDK • Model Context Protocol
+            {/* Technology Stack Pill */}
+            <div className="mt-4 flex items-center gap-3 rounded-full border border-emerald-500/40 bg-zinc-900/90 px-6 py-2 shadow-2xl">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className="font-mono text-[11px] font-bold text-emerald-300 tracking-widest uppercase">
+                Gemini 2.5 • Google Gen AI SDK • Model Context Protocol
               </span>
+            </div>
+
+            {/* Outro Call to Action & Verification Grid */}
+            <div className="mt-8 grid grid-cols-2 gap-6 max-w-2xl w-full text-left">
+              {/* Live Web App */}
+              <div className="rounded-xl border border-cyan-500/40 bg-zinc-900/90 p-4 shadow-xl backdrop-blur-md">
+                <span className="text-[10px] font-bold font-mono text-cyan-400 uppercase tracking-wider block">
+                  🌐 Live Web Application & Judge Mode
+                </span>
+                <p className="mt-1 font-mono text-sm font-extrabold text-white">
+                  takurot0708.web.app
+                </p>
+                <p className="mt-1 text-[11px] text-zinc-400">
+                  Interactive Live Gemini & Recorded Replay
+                </p>
+              </div>
+
+              {/* GitHub Repository */}
+              <div className="rounded-xl border border-emerald-500/40 bg-zinc-900/90 p-4 shadow-xl backdrop-blur-md">
+                <span className="text-[10px] font-bold font-mono text-emerald-400 uppercase tracking-wider block">
+                  💻 Open Source GitHub Repository
+                </span>
+                <p className="mt-1 font-mono text-sm font-extrabold text-white">
+                  github.com/takurot/agentic-film-ops
+                </p>
+                <p className="mt-1 text-[11px] text-zinc-400">
+                  Architecture SPEC • 330+ Tests • Remotion Source
+                </p>
+              </div>
+            </div>
+
+            {/* Canonical Scenario Credit */}
+            <div className="mt-6 flex items-center gap-3 text-[10px] font-mono text-zinc-500">
+              <span>Canonical Scenario: SCENARIO-SC042-RAIN-V1</span>
+              <span>•</span>
+              <span className="text-emerald-400/80">Day 27 Scene 42 Verified</span>
             </div>
           </div>
         </div>
@@ -137,3 +174,4 @@ export const Scene8_ResolvedSummary: React.FC = () => {
     </div>
   );
 };
+
