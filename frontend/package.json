@@ -8,7 +8,8 @@
     "build:replay": "cross-env NEXT_PUBLIC_FILMOPS_MODE=RECORDED_REPLAY next build",
     "build:live-test": "cross-env NEXT_PUBLIC_FILMOPS_MODE=LIVE_GEMINI NEXT_PUBLIC_API_URL=https://api.example.test next build",
     "serve:export": "http-server out -p 4173 -c-1",
-    "test:e2e:replay": "npm run build:replay && playwright test e2e/replay.spec.ts",
+    "test:e2e:replay": "npm run build:replay && playwright test e2e/replay.spec.ts e2e/judge-mode-mobile.spec.ts",
+
     "test:e2e:public": "cross-env PLAYWRIGHT_BASE_URL=https://takurot0708.web.app playwright test e2e/replay.spec.ts",
     "test:e2e:live": "npm run build:live-test && playwright test e2e/live-offline.spec.ts",
     "test:build-config": "node scripts/verify-build-config.mjs",

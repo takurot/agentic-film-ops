@@ -7,6 +7,7 @@ import { getPublicRuntimeConfig } from "@/lib/runtimeConfig";
 import { MOCK_HEALTH, MOCK_INCIDENTS } from "@/lib/mockData";
 import { DemoTimeline } from "@/components/demo";
 import { VideoModal } from "@/components/video";
+import { JudgeExecutiveSummary } from "@/components/judge";
 
 type DashboardState =
   | { kind: "REPLAY_READY"; health: HealthData; incidents: ActiveIncident[] }
@@ -24,6 +25,7 @@ export default function Home() {
     ? { kind: "REPLAY_READY", health: MOCK_HEALTH, incidents: MOCK_INCIDENTS }
     : { kind: "LOADING_LIVE" });
   const [showTimeline, setShowTimeline] = useState(true);
+  const [isJudgeMode, setIsJudgeMode] = useState(true);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [resetError, setResetError] = useState<"RESET_FAILED" | null>(null);
@@ -123,30 +125,72 @@ export default function Home() {
 
   const { health, incidents } = state;
   const replay = state.kind === "REPLAY_READY";
-  return <div className="flex min-h-screen flex-col bg-zinc-950 font-sans">
-    <Header dayCurrent={health.production_day_current} dayTotal={health.production_day_total}
-      onToggleTimeline={() => setShowTimeline((value) => !value)} onReset={handleReset}
-      resetting={resetting} showTimeline={showTimeline}
-      runtimeLabel={replay ? "RECORDED REPLAY / SAMPLE DATA" : "LIVE GEMINI + MCP STDIO"} />
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 p-6">
-      {replay && <div data-testid="runtime-mode-banner" role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-950/20 px-4 py-3 text-xs text-amber-200">
-        <strong>RECORDED REPLAY / SAMPLE DATA — NO LIVE API CALLS</strong>
-        <button type="button" onClick={() => setIsVideoModalOpen(true)} className="rounded-lg border border-amber-500/40 px-3 py-1 font-bold">🎬 Watch Promo Video (90s)</button>
-      </div>}
-      {resetError && <div role="alert" className="rounded-lg border border-red-500/40 bg-red-950/20 px-4 py-3 text-xs font-bold text-red-200">
-        {resetError} — The current dashboard remains unchanged. Retry when the Live backend is available.
-      </div>}
-      <ProductionHealth schedulePercent={health.schedule_adherence_percent} budgetSpent={health.budget_spent_usd}
-        budgetTotal={health.budget_total_usd} scenesCompleted={health.scenes_completed} scenesTotal={health.scenes_total} risk={health.overall_risk} />
-      {incidents.map((incident) => state.kind === "REPLAY_READY"
-        ? <ActiveIncidentCard key={incident.incident_id} incident={incident} runtimeMode="RECORDED_REPLAY" client={null} />
-        : <ActiveIncidentCard key={incident.incident_id} incident={incident} runtimeMode="LIVE_GEMINI" client={state.client} />)}
-      <TodayProgress scenes={health.today_scenes} />
-    </main>
-    <footer className="border-t border-white/5 py-4 text-center text-[10px] text-zinc-500">
-      {replay ? "Agentic FilmOps — Scenario Replay / Sample Data illustrating the Gemini + MCP workflow" : "Agentic FilmOps — Powered by Gemini + MCP"}
-    </footer>
-    <DemoTimeline visible={showTimeline} onClose={() => setShowTimeline(false)} replay={replay} />
-    <VideoModal isOpen={isVideoModalOpen} onClose={() => setIsVideoModalOpen(false)} />
-  </div>;
+  return (
+    <div className="flex min-h-screen w-full max-w-full flex-col overflow-x-hidden bg-zinc-950 font-sans">
+      <Header
+        dayCurrent={health.production_day_current}
+        dayTotal={health.production_day_total}
+        onToggleTimeline={() => setShowTimeline((value) => !value)}
+        onReset={handleReset}
+        resetting={resetting}
+        showTimeline={showTimeline}
+        isJudgeMode={isJudgeMode}
+        onToggleJudgeMode={() => setIsJudgeMode((value) => !value)}
+        runtimeLabel={replay ? "RECORDED REPLAY / SAMPLE DATA" : "LIVE GEMINI + MCP STDIO"}
+      />
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 sm:gap-6 px-3.5 py-4 sm:p-6 overflow-x-hidden">
+        {/* Judge Mode Executive Summary & Deep Jumps */}
+        {isJudgeMode && (
+          <JudgeExecutiveSummary
+            onOpenVideoModal={() => setIsVideoModalOpen(true)}
+            runtimeMode={replay ? "RECORDED_REPLAY" : "LIVE_GEMINI"}
+            isCollapsed={false}
+          />
+        )}
+
+        {replay && (
+          <div
+            data-testid="runtime-mode-banner"
+            role="status"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-950/20 px-3.5 py-2.5 sm:px-4 sm:py-3 text-xs text-amber-200"
+          >
+            <strong>RECORDED REPLAY / SAMPLE DATA — NO LIVE API CALLS</strong>
+            <button
+              type="button"
+              onClick={() => setIsVideoModalOpen(true)}
+              className="min-h-[32px] rounded-lg border border-amber-500/40 px-3 py-1 font-bold text-amber-300 hover:bg-amber-500/20 transition-colors focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
+            >
+              🎬 Watch Promo Video (90s)
+            </button>
+          </div>
+        )}
+        {resetError && (
+          <div role="alert" className="rounded-lg border border-red-500/40 bg-red-950/20 px-4 py-3 text-xs font-bold text-red-200">
+            {resetError} — The current dashboard remains unchanged. Retry when the Live backend is available.
+          </div>
+        )}
+        <ProductionHealth
+          schedulePercent={health.schedule_adherence_percent}
+          budgetSpent={health.budget_spent_usd}
+          budgetTotal={health.budget_total_usd}
+          scenesCompleted={health.scenes_completed}
+          scenesTotal={health.scenes_total}
+          risk={health.overall_risk}
+        />
+        {incidents.map((incident) =>
+          state.kind === "REPLAY_READY" ? (
+            <ActiveIncidentCard key={incident.incident_id} incident={incident} runtimeMode="RECORDED_REPLAY" client={null} />
+          ) : (
+            <ActiveIncidentCard key={incident.incident_id} incident={incident} runtimeMode="LIVE_GEMINI" client={state.client} />
+          )
+        )}
+        <TodayProgress scenes={health.today_scenes} />
+      </main>
+      <footer className="border-t border-white/5 py-4 text-center text-[10px] text-zinc-500">
+        {replay ? "Agentic FilmOps — Scenario Replay / Sample Data illustrating the Gemini + MCP workflow" : "Agentic FilmOps — Powered by Gemini + MCP"}
+      </footer>
+      <DemoTimeline visible={showTimeline} onClose={() => setShowTimeline(false)} replay={replay} />
+      <VideoModal isOpen={isVideoModalOpen} onClose={() => setIsVideoModalOpen(false)} />
+    </div>
+  );
 }
