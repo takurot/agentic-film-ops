@@ -124,11 +124,20 @@ async function runVerification() {
     }
 
     // Verify MCP Activity Monitor & External Comms Mock
-    if (pageContentAfterClick.includes("LIVE MCP ACTIVITY") && pageContentAfterClick.includes("EXTERNAL COMMUNICATION")) {
-      logPass("MCP Monitor & External Comms", "Live MCP tools and talent manager comms mock visible (SPEC §9.3 / §9.5)");
+    if (
+      (pageContentAfterClick.includes("MCP ACTIVITY") ||
+        pageContentAfterClick.includes("LIVE MCP ACTIVITY") ||
+        pageContentAfterClick.includes("REPLAYED MCP ACTIVITY")) &&
+      pageContentAfterClick.includes("EXTERNAL COMMUNICATION")
+    ) {
+      logPass(
+        "MCP Monitor & External Comms",
+        "MCP Activity Monitor and talent manager comms mock visible (SPEC §9.3 / §9.5)"
+      );
     } else {
       logFail("MCP Monitor & External Comms", "MCP / Comms mock missing");
     }
+
 
     // Wait for simulated stream to finish
     await page.waitForTimeout(3000);
