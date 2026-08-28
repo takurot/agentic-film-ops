@@ -1,109 +1,86 @@
-# Agentic FilmOps — Live Demo Fallback Plan
+# Agentic FilmOps — Live Demo Fallback & Rehearsal Plan
 
-This document covers contingency procedures when the live demo encounters failures.
-Ties to Issue #27 (Finalize and rehearse the 4-minute demo script) and SPEC §10 (Promo Video).
+This document covers contingency procedures when rehearsing or presenting the demo under network-constrained or live-failure conditions (per SPEC §11 and Issue #87).
 
 ---
 
-## §1. Failure Triage Matrix
+## §1. Failure Triage & Recovery Matrix
 
-| Symptom | Likely Cause | Immediate Action |
+| Symptom | Root Cause | Immediate Action |
 |---|---|---|
-| Frontend blank / 404 | Next.js build issue | Hard refresh → `npm run dev` → check `NEXT_PUBLIC_API_URL` |
-| "Failed to load dashboard" error | Backend not running | `cd backend && uvicorn app.main:app --reload` |
-| Analysis stuck at "Analyzing…" | Agent timeout / Gemini API rate limit | Check `backend/.env` for `GOOGLE_API_KEY`; restart backend |
-| Weather Alert not appearing | Demo state not reset | Click **↺ Reset Demo** in header or `POST /api/demo/reset` |
-| React Flow blank / no graph | Browser SSR issue | Refresh; React Flow requires client-side hydration |
-| Option Comparison not showing | Analysis timeout | Wait 30s; if still blank, `POST /api/demo/reset` and retry |
+| Frontend blank / 404 | Node server stopped | Run `npm run dev` in `frontend/` (port 3000) or check `takurot0708.web.app` |
+| "Failed to load dashboard" error | Backend not running | Run `uvicorn app.main:app --reload` in `backend/` (port 8000) |
+| Analysis error / backend timeout | `GEMINI_API_KEY` missing or invalid | Check `backend/.env` for valid `GEMINI_API_KEY` or switch to `RECORDED_REPLAY` mode |
+| Weather Alert not appearing | Demo state already decided | Click **↺ Reset** in the header or call `POST /api/demo/reset` |
+| Zero internet at venue | Venue offline | Run frontend in `RECORDED_REPLAY` mode (`npm run build:replay && npm run serve:export`) |
+| Hardware / browser crash | Complete device failure | Play pre-rendered 1080p video at `remotion/out/promo-video.mp4` or load on smartphone |
 
 ---
 
-## §2. Partial-Failure Recovery Procedures
+## §2. Mode-Based Execution Profiles
 
-### §2.1 Backend Restart (< 30 sec)
+### Profile A: Live Gemini Mode (Requires Internet & `GEMINI_API_KEY`)
+1. **Backend (Terminal 1):**
+   ```bash
+   cd backend
+   export GEMINI_API_KEY="your-gemini-api-key"
+   /Users/takurot/Library/Python/3.14/bin/pybun run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+2. **Frontend (Terminal 2):**
+   ```bash
+   cd frontend
+   NEXT_PUBLIC_FILMOPS_MODE=LIVE_GEMINI npm run dev
+   ```
+3. Open `http://localhost:3000` in browser.
+
+---
+
+### Profile B: Zero-Backend Recorded Replay Mode (100% Offline, Zero API Key)
+The frontend contains a fully standalone, network-isolated replay profile that requires **zero backend servers, zero API keys, and zero internet connection**:
 ```bash
-cd /path/to/agentic-film-ops/backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+cd frontend
+npm run build:replay
+npm run serve:export
 ```
+Open `http://localhost:4173` in any browser.
 
-### §2.2 Demo State Reset
-**Via UI:** Click **↺ Reset Demo** in the header.  
+---
+
+## §3. Fast Restart Sequences (< 30 Seconds)
+
+### Reset Demo Database State
+**Via Dashboard UI:** Click **↺ Reset** in the top navigation bar.  
 **Via CLI:**
 ```bash
 curl -X POST http://localhost:8000/api/demo/reset
 ```
-This clears all incidents and analyses, resetting to a fresh pre-incident state.
-
-### §2.3 Full Restart Sequence (< 60 sec)
-```bash
-# Terminal 1 — Backend
-cd backend && uvicorn app.main:app --reload
-
-# Terminal 2 — Frontend  
-cd frontend && npm run dev
-
-# Browser
-open http://localhost:3000
-# Click ↺ Reset Demo
-# Click ▶ Timeline to start the overlay
-```
+This resets Scene 42 and incident `INC-20260902-001` back to their initial un-resolved state.
 
 ---
 
-## §3. Total Failure — Pre-recorded Video Fallback
+## §4. Video Fallback (< 10 Seconds)
 
-If neither backend nor frontend can be recovered within 2 minutes:
-
-1. Open the pre-recorded screen capture: **`docs/assets/demo-recording.mp4`**  
-   *(Record this before the presentation; see §4 for recording instructions)*
-2. Play at 1x speed with narration cues from [DEMO_SCRIPT.md](./DEMO_SCRIPT.md)
-3. Alternatively, the Remotion promo video (Issue #28, Issue #36) serves as a
-   condensed 60–90 sec fallback covering the 6 SPEC §15 success criteria visually
-
-**Narration pivot for video fallback:**
-> *"Let me show you a recorded walkthrough since we want to focus on the agent behavior
-> rather than setup time. The same system is running here, and I'll narrate the key moments."*
-
----
-
-## §4. Pre-Presentation Recording Instructions
-
-Record at least one full run-through before the live presentation:
-
-```bash
-# macOS — QuickTime Player → File → New Screen Recording
-# Set: 1920×1080, audio off, cursor highlight on
-# Start recording, then run the demo scenario end-to-end
-# Save as docs/assets/demo-recording.mp4
-```
-
-Alternatively use OBS:
-- Scene: Display capture + window capture (browser)
-- Output: MP4, 1920×1080, 30fps
-- File: `docs/assets/demo-recording.mp4`
+If a live presentation environment encounters unforeseen projector, browser, or network failure:
+1. Open the rendered 90-second promotional showcase:
+   ```bash
+   open remotion/out/promo-video.mp4
+   ```
+2. The video covers the complete 8-scene lifecycle:
+   - **0:05**: Weather alert trigger on Scene 42 (Day 27).
+   - **0:15**: 6-domain parallel agent swarm.
+   - **0:30**: MCP stdio dependency graph propagation.
+   - **0:45**: Talent manager NLP negotiation (Emma Carter).
+   - **0:55**: Pareto-optimal recovery options (Option A saves $79,800).
+   - **1:10**: Producer approval gate & autonomous dispatch.
+   - **1:20**: Closed-loop resolution summary & judge verification links.
 
 ---
 
-## §5. Network / API Key Contingency
+## §5. Pre-Demo Verification Checklist
 
-If the venue has no internet (Gemini API requires connectivity):
-
-- The backend has a mock analysis mode. All MCP servers are already mocks (SPEC §11).
-- Set `GEMINI_MOCK=true` in `backend/.env` to use pre-scripted responses:
-  ```env
-  GEMINI_MOCK=true
-  MOCK_ANALYSIS_DELAY_MS=3000
-  ```
-- This produces realistic event streams without any external API calls.
-- Restart backend after changing `.env`.
-
----
-
-## §6. Checklist — Day of Presentation
-
-- [ ] Screen capture recorded and accessible at `docs/assets/demo-recording.mp4`
-- [ ] Backup laptop with demo repo cloned and `npm run dev` + `uvicorn` verified
-- [ ] `GOOGLE_API_KEY` loaded in both laptops' `backend/.env`
-- [ ] `GEMINI_MOCK=true` mode tested and working as fallback
-- [ ] Demo Timeline overlay tested at venue resolution
-- [ ] Promo video (Issue #28) downloaded and accessible offline
+- [ ] `GEMINI_API_KEY` configured in `backend/.env` (if presenting Live Mode).
+- [ ] Backend tests passing: `pybun test` (331 tests green).
+- [ ] Frontend tests passing: `npm test` (111 tests green).
+- [ ] Replay build verified: `npm run test:e2e:replay` (0 horizontal overflow, 0 errors).
+- [ ] Rendered video verified: `remotion/out/promo-video.mp4` playable.
+- [ ] Public Web App bookmarked: `https://takurot0708.web.app` (Judge Mode ready).
