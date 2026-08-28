@@ -13,8 +13,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Agentic FilmOps — Production Dashboard",
-  description: "AI-powered film production operations dashboard",
+  title: "Agentic FilmOps — Autonomous Production Disruption Recovery",
+  description:
+    "Autonomous Production Control Tower for film and television built on Gemini 2.5 and Model Context Protocol (MCP). Multi-agent replanning, human-in-the-loop governance, and verifiable cost avoidance.",
+  metadataBase: new URL("https://takurot0708.web.app"),
+  openGraph: {
+    title: "Agentic FilmOps — Autonomous Production Disruption Recovery",
+    description:
+      "Autonomous Production Control Tower for film and television built on Gemini 2.5 and Model Context Protocol (MCP). Multi-agent replanning, human-in-the-loop governance, and verifiable cost avoidance.",
+    url: "https://takurot0708.web.app",
+    siteName: "Agentic FilmOps",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Agentic FilmOps — Autonomous Production Disruption Recovery",
+    description:
+      "Autonomous Production Control Tower for film and television built on Gemini 2.5 and Model Context Protocol (MCP).",
+  },
+  keywords: [
+    "Agentic FilmOps",
+    "Gemini 2.5",
+    "Model Context Protocol",
+    "MCP",
+    "Multi-Agent AI",
+    "Film Production",
+    "Production Scheduling",
+  ],
 };
 
 export default function RootLayout({
@@ -27,7 +53,7 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">{children}</body>
     </html>
   );
 }

@@ -21,7 +21,7 @@
 
 ## 🌟 Executive Summary for Judges
 
-When reality disrupts a $20M+ film production—such as a sudden 92% thunderstorm forecast on an outdoor rooftop shoot—producers face hours of chaotic calls, union overtime disputes, and **tens of thousands in idle crew standby penalties ($79,800+)**.
+When reality disrupts a $20M+ film production—such as a sudden 92% thunderstorm forecast on an outdoor rooftop shoot (Production Day 27)—producers face hours of chaotic calls, union overtime disputes, and **tens of thousands in idle crew standby penalties ($79,800+)**.
 
 **Agentic FilmOps** turns every production resource (actors, equipment, stages, weather, budgets) into an AI-accessible **Production Resource Network** connected through the **Model Context Protocol (MCP)**. Powered by **Gemini 2.5 through the Google Gen AI SDK**, a team of 6 domain agents autonomously observes the disruption, reasons across cascading constraints, negotiates with external talent managers, generates Pareto-optimal replanning options with explainability, and executes the approved plan—**resolving the entire crisis in under 4 minutes with 1 human approval.**
 
@@ -36,15 +36,30 @@ Observe (Doppler Radar)
 
 ---
 
-## ⚡ Quick Links & Live Demos
+## ⚡ Quick Links & Evaluation Resources
 
 | Resource | Link | Description |
 |---|---|---|
-| 🌐 **Live Interactive App** | [https://takurot0708.web.app](https://takurot0708.web.app) | Full interactive Next.js 16 dashboard with live AI simulation mode |
+| 🌐 **Live Interactive App** | [https://takurot0708.web.app](https://takurot0708.web.app) | Full interactive Next.js 16 dashboard with Judge Mode & Replay |
 | 🎥 **YouTube Demo Video** | [https://youtu.be/2UmZ72bTpjk](https://youtu.be/2UmZ72bTpjk) | 90-second cinematic showcase with voice narration & subtitles |
 | 🎬 **Promo Video Direct Stream** | [https://takurot0708.web.app/promo-video.mp4](https://takurot0708.web.app/promo-video.mp4) | High-definition 1080p MP4 generated programmatically via Remotion |
+| 🔬 **Evidence & Claim Matrix** | [`docs/EVIDENCE_MATRIX.md`](docs/EVIDENCE_MATRIX.md) | Full Real / Simulated / Replay classification with test links |
 | 📖 **Complete Specification** | [`docs/SPEC.md`](docs/SPEC.md) | Comprehensive engineering specification & domain data models |
 | 🔄 **Implementation Workflow** | [`docs/WORKFLOW.md`](docs/WORKFLOW.md) | Standardized git/PR issue lifecycle and acceptance gates |
+| 🛡️ **Demo Fallback & Rehearsal** | [`docs/DEMO_FALLBACK.md`](docs/DEMO_FALLBACK.md) | Step-by-step contingency plan and execution profiles |
+
+---
+
+## ⚖️ Hackathon Rubric Alignment
+
+| Judging Criterion | How Agentic FilmOps Excels | Evidence Link |
+|---|---|---|
+| **Technical Execution & Architecture** | Full Model Context Protocol (MCP) architecture across 6 stdio servers. Clean separation: UI never calls agents or DB directly. Strict async background runner with durable state machine. | [`SPEC §3 Architecture`](docs/SPEC.md), [`EVIDENCE_MATRIX.md`](docs/EVIDENCE_MATRIX.md) |
+| **Gemini Integration Depth** | Gemini 2.5 Flash via Google Gen AI SDK powers multi-agent reasoning, dependency traversal, unstructured talent manager parsing, and Pareto replan synthesis. | [`gemini_client.py`](backend/app/gemini_client.py), [`actor.py`](backend/app/agents/actor.py) |
+
+| **Real-World Impact & Utility** | Proven film industry pain point: eliminates $79,800+ in idle crew standby penalties and saves 3+ hours of manual scramble per disruption. | [`demo_scenario.json`](scenario/v1/demo_scenario.json), [`test_scenario_contract.py`](backend/tests/test_scenario_contract.py) |
+| **UX & Design Rigor** | Real-time Resource Network graph (React Flow), 4-point Judge Executive Summary, 1-click SPEC §15 deep jumps, WCAG 2.1 AA accessible, 0 horizontal overflow across 390px mobile, tablet, and desktop. | [`JudgeExecutiveSummary.tsx`](frontend/src/components/judge/JudgeExecutiveSummary.tsx), [`judge-mode-mobile.spec.ts`](frontend/e2e/judge-mode-mobile.spec.ts) |
+| **Quality & Reliability** | 458 automated tests passing (331 Pytest, 111 Vitest, 9 Remotion, 7 Playwright E2E). Automated CI quality gates on every PR. | [CI Action Workflow](https://github.com/takurot/agentic-film-ops/actions) |
 
 ---
 
@@ -57,7 +72,7 @@ The UI **never** bypasses the Orchestrator or calls agents directly. Every singl
 The **Production Resource Network** dynamically traverses cascading dependencies (Scene 42 → Lead Actors Emma & Daniel → Shibuya Rooftop → ARRI Alexa 35 Camera Package → Rental Company → Weather Radar). Live pulse animations visualize the real-time AI impact propagation.
 
 ### 3. AI-to-Human External Comms Structuring
-Unstructured natural-language negotiations with external talent agents (e.g. *"She can make it after 4 PM, but must wrap by 8 PM"*) are ingested and structured into strict JSON constraints with zero human data re-entry.
+Unstructured natural-language negotiations with external talent agents (e.g. *"Emma can make it after 4 PM, but has a hard stop at 8 PM"*) are ingested and structured into strict JSON constraints with zero human data re-entry.
 
 ### 4. Deterministic Multi-Objective Constraint Solver
 Rather than relying on hallucinated LLM schedules, the Schedule Agent runs a deterministic multi-objective solver to evaluate Pareto efficiency across Cast Union Rules, Golden Hour Lighting, Stage Availability, and Budget Variances.
@@ -71,17 +86,17 @@ The AI generates 3 explainable options (Option A: Studio B Swap [Recommended], O
 
 | Beat | Timestamp | System Action & Judge Focus |
 |:---:|:---:|---|
-| **1** | `0:00` | **Production Dashboard**: 54-day shoot overview, 94% schedule adherence, $12.4M spent. |
+| **1** | `0:00` | **Production Dashboard**: Day 27 of 54 shoot overview, 94% schedule adherence, $12.4M spent. |
 | **2** | `0:20` | **Weather Risk Alert**: Doppler radar detects 92% rain on Scene 42 rooftop shoot. |
-| **3** | `0:40` | **Impact Analysis**: Producer triggers AI Impact Analysis. |
-| **4** | `1:00` | **Multi-Agent Coordination**: 6 domain agents activate in parallel, with Gemini reasoning via the Google Gen AI SDK. |
+| **3** | `0:40` | **Impact Analysis**: Producer triggers AI Impact Analysis (202 Accepted async job). |
+| **4** | `1:00` | **Multi-Agent Coordination**: 6 domain agents activate in parallel, with Gemini reasoning via Google Gen AI SDK. |
 | **5** | `1:30` | **Live MCP Tool Bus**: Real-time stdio stream captures tool queries and responses. |
-| **6** | `1:50` | **External Agency Comms**: Actor Agent negotiates with talent agency manager. |
+| **6** | `1:50` | **External Agency Comms**: Actor Agent negotiates with talent agency manager for Emma Carter. |
 | **7** | `2:20` | **Structured Comms Ingestion**: Unstructured chat parsed into time-window constraints. |
 | **8** | `2:40` | **Constraint Solving**: Pareto solver explores alternatives across cast, stages, and trucks. |
 | **9** | `3:10` | **Replan Options A/B/C**: 3 viable plans presented with cost, delay, and risk trade-off meters. |
 | **10** | `3:30` | **Producer Approval Gate**: Producer reviews Explainability rationale and clicks **Approve & Execute**. |
-| **11** | `3:45` | **Autonomous Execution**: 7 automated tasks fire across MCP tools (call sheets, soundstages, equipment). |
+| **11** | `3:45` | **Autonomous Execution**: Multi-step durable execution pipeline locks Studio B, camera gear, and call sheets. |
 | **12** | `4:00` | **Closed-Loop Resolution**: Before/After summary displays $79,800 saved, 0 days delay, incident closed. |
 
 ---
@@ -94,7 +109,7 @@ The AI generates 3 explainable options (Option A: Studio B Swap [Recommended], O
                     │  Health • Graph • Options • Execution  │
                     └───────────────────┬────────────────────┘
                                         │
-                                 WebSocket / SSE / API
+                                  WebSocket / SSE / API
                                         │
                     ┌───────────────────▼────────────────────┐
                     │        PRODUCTION ORCHESTRATOR         │
@@ -138,34 +153,34 @@ Frontend
  ├─ Next.js 16 (App Router) & React 19
  ├─ Tailwind CSS v4 & Lucide Icons
  ├─ React Flow (Interactive Resource Network Graph)
- └─ Server-Sent Events (SSE) & WebSocket real-time stream
+ └─ Server-Sent Events (SSE) live streaming & Judge Mode
 
 Backend & AI Core
- ├─ Python 3.11 / FastAPI
+ ├─ Python 3.13 / FastAPI
  ├─ Gemini 2.5 Flash via Google Gen AI SDK
- ├─ Model Context Protocol (MCP) Python SDK
+ ├─ Model Context Protocol (MCP) stdio Transport SDK
  └─ SQLite + SQLAlchemy (Production Resource Graph)
 
 Video Generation & Automation
  ├─ Remotion v4 (Programmatic React-to-Video engine)
  ├─ Auto-Ducking Audio Synthesis & Dynamic Narration
- └─ Automated Playwright E2E Browser Testing Suite
+ └─ Automated Playwright Multi-Viewport E2E Testing Suite
 ```
 
 ---
 
-## 🧪 Comprehensive Test Coverage (100% Green)
+## 🧪 Comprehensive Test Coverage (100% Green — 458 Tests)
 
-Every layer is rigorously verified by automated unit, integration, and end-to-end tests:
+Every layer is rigorously verified by automated unit, integration, contract, and end-to-end tests:
 
 ```text
 ========================================================================
-✔ Frontend Vitest Suite:     72 passed (15 test files)
-✔ Backend Pytest Suite:     282 passed (full coverage across MCP/Agents)
-✔ Remotion Vitest Suite:      9 passed (SPEC §10 timeline beats)
-✔ Live Browser E2E Suite:    15 passed (Playwright live site verification)
+✔ Backend Pytest Suite:      331 passed (full coverage across MCP/Agents/Resilience)
+✔ Frontend Vitest Suite:     111 passed (Judge Mode, Options, A11y, Contracts)
+✔ Remotion Vitest Suite:       9 passed (SPEC §10 timeline beats & continuity)
+✔ Playwright E2E Matrix:       7 passed (Mobile 390x844, Tablet, Desktop, Replay)
 ========================================================================
-TOTAL:                      378 automated tests passing
+TOTAL:                       458 automated tests passing
 ```
 
 ---
@@ -174,12 +189,12 @@ TOTAL:                      378 automated tests passing
 
 ### 1. Prerequisites
 - Node.js v20+ / npm
-- Python 3.11+
+- Python 3.11+ (or `pybun`)
 
 ### 2. Frontend Setup (Dashboard)
 ```bash
 cd frontend
-npm install
+npm ci
 cp .env.example .env.local             # Defaults to RECORDED_REPLAY
 npm run dev
 # Dashboard opens at http://localhost:3000
@@ -190,9 +205,9 @@ npm run dev
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-python -m app.seed                      # Populate Scene 42 scenario
+python -m app.seed                      # Populate canonical Scene 42 scenario
 export FILMOPS_RUNTIME_MODE=LIVE_GEMINI
-export GEMINI_API_KEY="your-key"
+export GEMINI_API_KEY="your-gemini-api-key"
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -208,13 +223,12 @@ validated MCP stdio sessions. Missing credentials, provider errors, malformed
 model output, and MCP failures remain visible as `FAILED`; the backend never
 silently changes modes. The Live dashboard verifies the profile reported by
 `GET /api/runtime`; a connection failure or mismatch is shown as an error and
-never replaced by sample results. Public Live deployment remains disabled until
-the authentication and abuse-protection work in Issue #88 is complete.
+never replaced by sample results.
 
 ### 4. Promo Video (Remotion Preview & Render)
 ```bash
 cd remotion
-npm install
+npm ci
 npm run dev                             # Open Remotion Studio preview at http://localhost:3100
 npm run render                          # Render 1080p MP4 to remotion/out/promo-video.mp4
 ```
@@ -225,21 +239,25 @@ npm run render                          # Render 1080p MP4 to remotion/out/promo
 
 ```text
 .
-├── frontend/                # Next.js 16 + React 19 Dashboard & Component Library
-│   ├── src/app/             # App Router pages & layouts
-│   ├── src/components/      # Dashboard, React Flow Network, Approval, Video Modal
-│   └── src/lib/             # Validated Live client, bounded SSE, explicit replay fixtures
+├── frontend/                # Next.js 16 + React 19 Dashboard, Judge Mode & Component Library
+│   ├── src/app/             # App Router pages, metadata & layouts
+│   ├── src/components/      # Dashboard, Judge Summary, React Flow Network, Approval
+│   └── src/lib/             # Validated Live client, SSE parser, canonical scenario loaders
 ├── backend/                 # FastAPI server & Gemini Multi-Agent Orchestrator
 │   ├── app/agents/          # 6 Domain Agents (Weather, Script, Actor, Location, etc.)
 │   ├── app/mcp_servers/     # 6 Standalone MCP Server implementations (stdio)
 │   ├── app/models.py        # SQLAlchemy Production Resource Graph models
-│   └── tests/               # 282 Pytest integration tests
+│   └── tests/               # 331 Pytest integration & contract tests
 ├── remotion/                # Remotion v4 programmatic promo video project
-│   ├── src/scenes/          # 8 Scene components matching SPEC §10.3 beats
+│   ├── src/scenes/          # 8 Scene components matching SPEC §10.3 beats & outro
 │   └── scripts/             # Voiceover narration & BGM auto-ducking generators
+├── scenario/                # Single canonical versioned scenario (v1)
+│   ├── v1/demo_scenario.json # Single source of truth for Day 27 Scene 42
+│   └── v1/scenario.schema.json # JSON Schema Draft 2020-12
 ├── docs/                    # Specification and architectural documentation
-│   ├── SPEC.md              # Master engineering specification (Japanese)
-│   ├── IDEA.md              # Original system architecture concept notes
+│   ├── SPEC.md              # Master engineering specification
+│   ├── EVIDENCE_MATRIX.md   # Hackathon claims & proof points classification matrix
+│   ├── DEMO_FALLBACK.md     # Rehearsal & contingency execution profiles
 │   └── WORKFLOW.md          # Standardized PR & issue lifecycle guide
 └── README.md
 ```

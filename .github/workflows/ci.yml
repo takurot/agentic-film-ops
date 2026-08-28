@@ -33,8 +33,12 @@ jobs:
       - name: Verify Scenario Artifact Freshness
         run: python ../scripts/sync_scenario.py --check
 
+      - name: Verify Documentation Claims & Links
+        run: python ../scripts/verify_docs_claims.py
+
       - name: Run Ruff Linter
         run: ruff check .
+
 
 
       - name: Run Ruff Format Check
