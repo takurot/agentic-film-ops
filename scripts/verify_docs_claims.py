@@ -19,7 +19,9 @@ DOC_FILES = [
     REPO_ROOT / "docs" / "DEMO_SCRIPT.md",
     REPO_ROOT / "docs" / "EVIDENCE_MATRIX.md",
     REPO_ROOT / "docs" / "GOOGLE_CLOUD_PRODUCTS_USED.md",
+    REPO_ROOT / "docs" / "PUBLIC_BACKEND_SECURITY.md",
     REPO_ROOT / "frontend" / "README.md",
+
 ]
 
 FORBIDDEN_PATTERNS = [

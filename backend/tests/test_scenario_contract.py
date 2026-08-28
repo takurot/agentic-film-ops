@@ -2,7 +2,6 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-
 from app.api import router
 from app.db import create_db_engine, get_session
 from app.models import Actor, Base, Crew, Equipment, Location, Scene
@@ -118,7 +117,6 @@ def test_production_health_endpoint_matches_scenario(tmp_path: Path):
     app = FastAPI()
     app.include_router(router)
     app.dependency_overrides[get_db_session] = lambda: get_session(engine)
-
 
     client = TestClient(app)
     res = client.get("/api/production/health")
