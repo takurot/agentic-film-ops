@@ -11,6 +11,7 @@ from collections.abc import AsyncGenerator
 from fastapi import (
     APIRouter,
     Depends,
+    Header,
     HTTPException,
     Request,
     Response,
@@ -172,37 +173,100 @@ def get_analysis(analysis_id: str, db: Session = Depends(get_db_session)) -> dic
 async def decide_analysis(
     analysis_id: str,
     request: DecisionRequest,
+    idempotency_header: str | None = Header(default=None, alias="Idempotency-Key"),
     db: Session = Depends(get_db_session),
     engine: AnalysisEngine = Depends(get_analysis_engine),
 ) -> dict:
     analysis = db.get(Analysis, analysis_id)
     if analysis is None:
         raise HTTPException(status_code=404, detail="Analysis not found")
+
+    idempotency_key = request.idempotency_key or idempotency_header
+
+    # 1. Existing decision handling: check for duplicate/replay, retry, or conflict
     if analysis.decision is not None:
+        is_same_decision = analysis.decision == request.decision and (
+            request.decision == "REJECT" or analysis.decided_option_id == request.option_id
+        )
+        if not is_same_decision:
+            raise HTTPException(
+                status_code=409,
+                detail="Analysis already decided with a different decision or option",
+            )
+
+        # Retry handling for FAILED execution
+        if request.decision == "APPROVE" and analysis.execution_status == "FAILED":
+            option_dict = {option["option_id"]: option for option in (analysis.options or [])}
+            selected_option = option_dict.get(request.option_id) or {}
+            if idempotency_key is not None:
+                analysis.idempotency_key = idempotency_key
+            analysis.execution_status = "IN_PROGRESS"
+            db.commit()
+
+            try:
+                steps = await engine.execute_plan(
+                    analysis_id=analysis_id,
+                    option=selected_option,
+                    incident_id=analysis.incident_id,
+                    db=db,
+                )
+                if not analysis.execution_steps or (
+                    analysis.execution_steps and isinstance(analysis.execution_steps[0], str)
+                ):
+                    analysis.execution_steps = steps
+                analysis.execution_status = "COMPLETED"
+                db.commit()
+                return analysis_to_schema(analysis).model_dump(mode="json")
+            except BaseException as exc:
+                analysis.execution_status = "FAILED"
+                db.commit()
+                raise HTTPException(
+                    status_code=500, detail=f"Execution retry failed: {exc}"
+                ) from exc
+
+        # Idempotent replay if idempotency key is supplied and matches
+        if idempotency_key is not None and analysis.idempotency_key == idempotency_key:
+            return analysis_to_schema(analysis).model_dump(mode="json")
+
+        # Without an idempotency key matching, repeat decision returns 409
         raise HTTPException(status_code=409, detail="Analysis already decided")
 
+    # 2. Initial decision
     if request.decision == "APPROVE":
-        option_dict = {option["option_id"]: option for option in analysis.options}
+        option_dict = {option["option_id"]: option for option in (analysis.options or [])}
         if analysis.status != "COMPLETED" or request.option_id not in option_dict:
             raise HTTPException(status_code=409, detail="No feasible option to approve")
         analysis.decision = "APPROVE"
         analysis.decided_option_id = request.option_id
+        analysis.idempotency_key = idempotency_key
         analysis.execution_status = "IN_PROGRESS"
         db.commit()
 
-        # Execute approved plan across MCP servers
-        steps = await engine.execute_plan(
-            analysis_id=analysis_id,
-            option=option_dict[request.option_id],
-            incident_id=analysis.incident_id,
-            db=db,
-        )
-        analysis.execution_steps = steps
-        analysis.execution_status = "COMPLETED"
+        try:
+            steps = await engine.execute_plan(
+                analysis_id=analysis_id,
+                option=option_dict[request.option_id],
+                incident_id=analysis.incident_id,
+                db=db,
+            )
+            if not analysis.execution_steps or (
+                analysis.execution_steps and isinstance(analysis.execution_steps[0], str)
+            ):
+                analysis.execution_steps = steps
+            analysis.execution_status = "COMPLETED"
+            db.commit()
+        except BaseException as exc:
+            analysis.execution_status = "FAILED"
+            db.commit()
+            raise HTTPException(status_code=500, detail=f"Execution failed: {exc}") from exc
+
     else:
         analysis.decision = "REJECT"
+        analysis.decided_option_id = None
+        analysis.idempotency_key = idempotency_key
+        analysis.execution_status = "NOT_STARTED"
+        db.commit()
 
-    db.commit()
     return analysis_to_schema(analysis).model_dump(mode="json")
 
 
@@ -211,10 +275,22 @@ def get_execution(analysis_id: str, db: Session = Depends(get_db_session)) -> di
     analysis = db.get(Analysis, analysis_id)
     if analysis is None:
         raise HTTPException(status_code=404, detail="Analysis not found")
+
+    raw_steps = list(analysis.execution_steps or [])
+    steps: list[str] = []
+    step_records: list[dict] = []
+    for item in raw_steps:
+        if isinstance(item, dict):
+            step_records.append(item)
+            steps.append(item.get("details") or item.get("label") or item.get("step_id", ""))
+        elif isinstance(item, str):
+            steps.append(item)
+
     return ExecutionSchema(
         analysis_id=analysis.analysis_id,
         status=analysis.execution_status,
-        steps=analysis.execution_steps,
+        steps=steps,
+        step_records=step_records if step_records else None,
     ).model_dump(mode="json")
 
 

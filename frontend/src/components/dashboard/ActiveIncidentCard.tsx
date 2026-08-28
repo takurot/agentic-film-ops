@@ -238,7 +238,12 @@ export function ActiveIncidentCard({
     let operation: AbortController | null = null;
     try {
       operation = beginOperation();
-      const updated = await client.submitDecision(analysis.analysis_id, "APPROVE", optionId, operation.signal);
+      const updated = await client.submitDecision(
+        analysis.analysis_id,
+        "APPROVE",
+        optionId,
+        operation.signal
+      );
       if (operationController.current !== operation) return;
       setAnalysis(updated);
       try {
@@ -275,7 +280,13 @@ export function ActiveIncidentCard({
     let operation: AbortController | null = null;
     try {
       operation = beginOperation();
-      const updated = await client.submitDecision(analysis.analysis_id, "REJECT", undefined, operation.signal);
+      const updated = await client.submitDecision(
+        analysis.analysis_id,
+        "REJECT",
+        undefined,
+        operation.signal
+      );
+
       if (operationController.current !== operation) return;
       setAnalysis(updated);
     } catch (caught) {
@@ -286,22 +297,47 @@ export function ActiveIncidentCard({
   }
 
   async function retryExecution() {
-    if (!client || !executionRetryId) return;
+    if (!client || !analysis) return;
     setIsSubmitting(true);
     setError(null);
     let operation: AbortController | null = null;
     try {
       operation = beginOperation();
-      const executionData = await client.fetchExecution(executionRetryId, operation.signal);
+      if (executionRetryId) {
+        const executionData = await client.fetchExecution(executionRetryId, operation.signal);
+        if (operationController.current !== operation) return;
+        setExecution(executionData);
+        setExecutionRetryId(null);
+        return;
+      }
+      const optionId = analysis.decided_option_id || undefined;
+      const updated = await client.submitDecision(
+        analysis.analysis_id,
+        "APPROVE",
+        optionId,
+        operation.signal
+      );
       if (operationController.current !== operation) return;
-      setExecution(executionData);
-      setExecutionRetryId(null);
-    } catch {
-      if (operation && operationController.current === operation) setError("EXECUTION_UNAVAILABLE");
+      setAnalysis(updated);
+      try {
+        const executionData = await client.fetchExecution(analysis.analysis_id, operation.signal);
+        if (operationController.current !== operation) return;
+        setExecution(executionData);
+        setExecutionRetryId(null);
+      } catch {
+        if (operationController.current === operation) {
+          setExecutionRetryId(analysis.analysis_id);
+          setError("EXECUTION_UNAVAILABLE");
+        }
+      }
+    } catch (caught) {
+      if (operation && operationController.current === operation) setError(classifyError(caught));
     } finally {
       if (!operation || operationController.current === operation) setIsSubmitting(false);
     }
   }
+
+
 
   const isResolved = incident.resolved || execution?.status === "COMPLETED";
   const isRejected = analysis?.decision === "REJECT";
@@ -430,7 +466,11 @@ export function ActiveIncidentCard({
       <div id="execution-summary-section" className="space-y-4">
         {execution && (
           <div className="mt-6">
-            <ExecutionChecklist execution={execution} />
+            <ExecutionChecklist
+              execution={execution}
+              onRetry={retryExecution}
+              retrying={isSubmitting}
+            />
           </div>
         )}
 

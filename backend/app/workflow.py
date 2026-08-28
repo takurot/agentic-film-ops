@@ -21,7 +21,20 @@ from app.models import Base
 
 AnalysisStatus = Literal["QUEUED", "ANALYZING", "COMPLETED", "FAILED"]
 Decision = Literal["APPROVE", "REJECT"]
-ExecutionStatus = Literal["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]
+ExecutionStatus = Literal["NOT_STARTED", "QUEUED", "IN_PROGRESS", "COMPLETED", "FAILED"]
+StepStatus = Literal["PENDING", "IN_PROGRESS", "COMPLETED", "FAILED", "SKIPPED"]
+
+
+class ExecutionStepRecord(BaseModel):
+    step_id: str
+    label: str
+    status: StepStatus = "PENDING"
+    attempt: int = 1
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    details: str | None = None
 
 
 class Incident(Base):
@@ -46,6 +59,7 @@ class Analysis(Base):
     explainability: Mapped[str | None] = mapped_column(String, default=None)
     decision: Mapped[str | None] = mapped_column(String, default=None)
     decided_option_id: Mapped[str | None] = mapped_column(String, default=None)
+    idempotency_key: Mapped[str | None] = mapped_column(String, default=None)
     execution_status: Mapped[str] = mapped_column(String, default="NOT_STARTED")
     execution_steps: Mapped[list] = mapped_column(JSON, default=list)
 
@@ -75,11 +89,13 @@ class ExecutionSchema(BaseModel):
     analysis_id: str
     status: ExecutionStatus
     steps: list[str]
+    step_records: list[dict] | None = None
 
 
 class DecisionRequest(BaseModel):
     decision: Decision
     option_id: str | None = None
+    idempotency_key: str | None = None
 
 
 @dataclass

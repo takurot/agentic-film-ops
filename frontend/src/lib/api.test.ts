@@ -44,7 +44,34 @@ describe("explicit API client", () => {
     await expect(client.fetchAnalysis("AN-1")).resolves.toMatchObject({ analysis_id: "AN-1" });
     await expect(client.fetchExecution("AN-1")).resolves.toMatchObject({ status: "COMPLETED" });
     await expect(client.resetDemoState()).resolves.toMatchObject({ status: "ok" });
+
+    // Test FAILED execution status parsing
+    const failedAnalysis = {
+      analysis_id: "AN-FAILED",
+      incident_id: "INC-1",
+      status: "COMPLETED",
+      options: [],
+      explainability: null,
+      decision: "APPROVE",
+      decided_option_id: "OPT-A",
+      execution_status: "FAILED",
+    };
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(failedAnalysis)));
+    await expect(client.fetchAnalysis("AN-FAILED")).resolves.toMatchObject({
+      execution_status: "FAILED",
+    });
+
+    const failedExecution = {
+      analysis_id: "AN-FAILED",
+      status: "FAILED",
+      steps: ["Location failed"],
+    };
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(failedExecution)));
+    await expect(client.fetchExecution("AN-FAILED")).resolves.toMatchObject({
+      status: "FAILED",
+    });
   });
+
   it("returns a stable error without leaking response content", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("secret detail", { status: 500 }));
     const client = createLiveApiClient({ mode: "LIVE_GEMINI", apiBase: "https://api.example.test" });
