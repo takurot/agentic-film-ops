@@ -1,6 +1,7 @@
 import React from "react";
-import { useCurrentFrame, interpolate, spring, useVideoConfig } from "remotion";
+import { useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { UIWrapper } from "../components/UIWrapper";
+
 
 export const Scene8_ResolvedSummary: React.FC = () => {
   const frame = useCurrentFrame();

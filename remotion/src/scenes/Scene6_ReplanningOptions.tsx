@@ -1,6 +1,7 @@
 import React from "react";
-import { useCurrentFrame, interpolate, spring, useVideoConfig } from "remotion";
+import { useCurrentFrame, spring, useVideoConfig } from "remotion";
 import { UIWrapper } from "../components/UIWrapper";
+
 import { mockAnalysis } from "../data/demoScenario";
 
 export const Scene6_ReplanningOptions: React.FC = () => {

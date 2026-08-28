@@ -5,10 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   backend:
-    name: Backend (Lint & Test)
+    name: Backend (Lint, Format & Test)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,11 +36,11 @@ jobs:
       - name: Run Ruff Format Check
         run: ruff format --check .
 
-      - name: Run Pytest
-        run: pytest --cov=app --cov=mcp_common
+      - name: Run Pytest with Coverage
+        run: pytest --cov=app --cov=mcp_common --cov-report=term-missing
 
   frontend:
-    name: Frontend (Lint, Typecheck & Test)
+    name: Frontend (Lint, Types, Build & Playwright)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -63,11 +64,71 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-      - name: Generate Next.js types (LayoutProps / PageProps)
+      - name: Generate Next.js types
         run: npx next typegen
 
       - name: Run TypeScript Type Check
         run: npx tsc --noEmit
 
-      - name: Run Vitest
+      - name: Run Vitest Unit Tests
         run: npm test
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright Replay E2E Test
+        run: npm run test:e2e:replay
+
+      - name: Run Playwright Live Offline E2E Test
+        run: npm run test:e2e:live
+
+      - name: Upload Playwright Artifacts on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
+
+
+  remotion:
+    name: Remotion Video (Lint, Types, Test & Smoke Render)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: remotion
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "remotion/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run TypeScript Type Check
+        run: npx tsc --noEmit
+
+      - name: Run Vitest Unit Tests
+        run: npm test
+
+      - name: Run Remotion Render Smoke Test (16 frames)
+        run: npm run render:smoke
+
+      - name: Upload Smoke Render Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: remotion-smoke-video
+          path: remotion/out/smoke.mp4
+          retention-days: 7
+

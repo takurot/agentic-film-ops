@@ -7,7 +7,7 @@
 [![Live Web App](https://img.shields.io/badge/Live%20Demo-takurot0708.web.app-00DC82?style=for-the-badge&logo=firebase&logoColor=white)](https://takurot0708.web.app)
 [![YouTube Video](https://img.shields.io/badge/YouTube-Watch%20Demo%20(90s)-FF0000?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/2UmZ72bTpjk)
 [![GitHub Repo](https://img.shields.io/badge/GitHub-takurot%2Fagentic--film--ops-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/takurot/agentic-film-ops)
-[![Test Suite](https://img.shields.io/badge/Tests-354%20Passing-emerald?style=for-the-badge)](https://github.com/takurot/agentic-film-ops/actions)
+[![GitHub Actions CI](https://github.com/takurot/agentic-film-ops/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/takurot/agentic-film-ops/actions/workflows/ci.yml)
 
 <br/>
 

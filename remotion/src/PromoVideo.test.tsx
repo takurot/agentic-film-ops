@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import React from "react";
+import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
+
 import { subtitleTracks } from "./data/demoScenario";
 import { Scene1_Logo } from "./scenes/Scene1_Logo";
 import { Scene2_Dashboard } from "./scenes/Scene2_Dashboard";

@@ -38,9 +38,16 @@ test("Recorded Replay completes without backend, SSE, WebSocket, or browser erro
   await page.getByRole("button", { name: /Approve & Execute/i }).click();
   await expect(page.getByTestId("before-after-summary")).toContainText("RECORDED REPLAY / SAMPLE DATA");
 
+  // Verify horizontal overflow (SPEC layout constraint)
+  const hasHorizontalOverflow = await page.evaluate(() => {
+    return document.documentElement.scrollWidth > window.innerWidth;
+  });
+  expect(hasHorizontalOverflow).toBe(false);
+
   const counters = await page.evaluate(() => (window as typeof window & { __networkCounters: { fetch: number; eventSource: number; webSocket: number } }).__networkCounters);
   expect(counters).toEqual({ fetch: 0, eventSource: 0, webSocket: 0 });
   expect(backendRequests).toEqual([]);
   expect(failedRequests).toEqual([]);
   expect(browserErrors).toEqual([]);
 });
+

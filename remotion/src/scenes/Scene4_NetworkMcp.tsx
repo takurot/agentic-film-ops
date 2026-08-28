@@ -1,11 +1,11 @@
 import React from "react";
-import { useCurrentFrame, interpolate, spring, useVideoConfig } from "remotion";
+import { useCurrentFrame, interpolate } from "remotion";
 import { UIWrapper } from "../components/UIWrapper";
 import { mockEvents } from "../data/demoScenario";
 
 export const Scene4_NetworkMcp: React.FC = () => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+
 
   const pulseOffset = interpolate(frame % 90, [0, 90], [0, 100]);
 
