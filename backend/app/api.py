@@ -33,6 +33,12 @@ from app.schemas import (
     TodaySceneProgressSchema,
     TodaySceneStatus,
 )
+from app.security import (
+    SecurityConfig,
+    enforce_mutation_rate_limit,
+    enforce_reset_rate_limit,
+    verify_demo_auth,
+)
 from app.seed import reset_demo_state
 from app.workflow import (
     Analysis,
@@ -96,7 +102,10 @@ def get_production_health(db: Session = Depends(get_db_session)) -> dict:
     ).model_dump(mode="json")
 
 
-@router.post("/api/demo/reset")
+@router.post(
+    "/api/demo/reset",
+    dependencies=[Depends(verify_demo_auth), Depends(enforce_reset_rate_limit)],
+)
 async def reset_demo(
     db: Session = Depends(get_db_session),
     runner: AnalysisRunner = Depends(get_analysis_runner),
@@ -112,9 +121,14 @@ def list_active_incidents(db: Session = Depends(get_db_session)) -> list[dict]:
     return [incident_to_schema(i).model_dump(mode="json") for i in incidents]
 
 
-@router.post("/api/incidents/{incident_id}/analyze", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/api/incidents/{incident_id}/analyze",
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(verify_demo_auth), Depends(enforce_mutation_rate_limit)],
+)
 async def analyze_incident(
     incident_id: str,
+    request: Request,
     db: Session = Depends(get_db_session),
     engine: AnalysisEngine = Depends(get_analysis_engine),
     runner: AnalysisRunner = Depends(get_analysis_runner),
@@ -122,6 +136,18 @@ async def analyze_incident(
     incident = db.get(Incident, incident_id)
     if incident is None:
         raise HTTPException(status_code=404, detail="Incident not found")
+
+    security_config: SecurityConfig = getattr(
+        request.app.state, "security_config", SecurityConfig.from_env()
+    )
+
+    # Check concurrency limit
+    if runner.active_count >= security_config.max_concurrent_analyses:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"CONCURRENCY_LIMIT_EXCEEDED — Max {security_config.max_concurrent_analyses} active analyses allowed simultaneously",
+            headers={"Retry-After": "5"},
+        )
 
     # Guard against duplicate active analysis for the same incident
     active_analysis = (
@@ -160,7 +186,10 @@ def get_analysis(analysis_id: str, db: Session = Depends(get_db_session)) -> dic
     return analysis_to_schema(analysis).model_dump(mode="json")
 
 
-@router.post("/api/analyses/{analysis_id}/decision")
+@router.post(
+    "/api/analyses/{analysis_id}/decision",
+    dependencies=[Depends(verify_demo_auth), Depends(enforce_mutation_rate_limit)],
+)
 async def decide_analysis(
     analysis_id: str,
     request: DecisionRequest,

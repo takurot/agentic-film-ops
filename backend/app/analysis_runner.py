@@ -37,6 +37,10 @@ class AnalysisRunner:
         self.bind = bind
         self._tasks: set[asyncio.Task[Any]] = set()
 
+    @property
+    def active_count(self) -> int:
+        return len([t for t in self._tasks if not t.done()])
+
     def start_analysis(
         self,
         incident_id: str,
@@ -149,13 +153,15 @@ class AnalysisRunner:
         await asyncio.sleep(0)
 
 
-def get_analysis_runner(request: Any = None) -> AnalysisRunner:
-    if request is not None:
-        runtime = getattr(getattr(request, "app", None), "state", None)
-        if runtime is not None:
-            container = getattr(runtime, "runtime", None)
-            if container is not None and getattr(container, "analysis_runner", None) is not None:
-                return container.analysis_runner
+from fastapi import Request
+
+
+def get_analysis_runner(request: Request) -> AnalysisRunner:
+    runtime = getattr(getattr(request, "app", None), "state", None)
+    if runtime is not None:
+        container = getattr(runtime, "runtime", None)
+        if container is not None and getattr(container, "analysis_runner", None) is not None:
+            return container.analysis_runner
     from app.db import engine
 
     return AnalysisRunner(bind=engine)
