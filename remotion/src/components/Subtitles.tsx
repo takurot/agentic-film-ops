@@ -1,10 +1,10 @@
 import React from "react";
-import { useCurrentFrame, interpolate, spring, useVideoConfig } from "remotion";
+import { useCurrentFrame, interpolate } from "remotion";
 import { subtitleTracks } from "../data/demoScenario";
 
 export const Subtitles: React.FC = () => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+
 
   const currentTrack = subtitleTracks.find(
     (t) => frame >= t.startFrame && frame < t.endFrame

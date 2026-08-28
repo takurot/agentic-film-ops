@@ -2,8 +2,8 @@ import { chromium } from "playwright";
 import fs from "fs";
 import path from "path";
 
-const TARGET_URL = "https://takurot0708.web.app";
-const SCREENSHOT_DIR = "/Users/takurot/src/agentic-film-ops/temp/browser_verification";
+const TARGET_URL = process.env.TARGET_URL || "https://takurot0708.web.app";
+const SCREENSHOT_DIR = process.env.SCREENSHOT_DIR || path.join(process.cwd(), "temp", "browser_verification");
 
 async function runVerification() {
   fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -17,6 +17,15 @@ async function runVerification() {
   });
 
   const page = await context.newPage();
+
+  const browserErrors = [];
+  const failedRequests = [];
+
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push(`[Console Error] ${message.text()}`);
+  });
+  page.on("pageerror", (error) => browserErrors.push(`[Page Error] ${error.message}`));
+  page.on("requestfailed", (request) => failedRequests.push(request.url()));
 
   const results = {
     steps: [],
@@ -35,6 +44,7 @@ async function runVerification() {
     results.steps.push({ name: stepName, status: "FAIL", detail });
     results.failed++;
   }
+
 
   try {
     // ─── Step 1: Initial Page Load ───
@@ -197,11 +207,25 @@ async function runVerification() {
     await browser.close();
   }
 
+  if (browserErrors.length > 0) {
+    console.error(`❌ Found ${browserErrors.length} browser errors:`, browserErrors);
+    results.failed += browserErrors.length;
+  }
+  if (failedRequests.length > 0) {
+    console.error(`❌ Found ${failedRequests.length} failed network requests:`, failedRequests);
+    results.failed += failedRequests.length;
+  }
+
   console.log("\n==========================================");
   console.log(`VERIFICATION SUMMARY: ${results.passed} PASSED, ${results.failed} FAILED`);
   console.log("==========================================");
+
+  if (results.failed > 0) {
+    process.exit(1);
+  }
 
   return results;
 }
 
 runVerification();
+

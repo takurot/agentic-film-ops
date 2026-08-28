@@ -5,7 +5,8 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   retries: 0,
-  reporter: "list",
+  reporter: [["list"], ["html", { open: "never" }]],
+
   use: {
     baseURL: E2E_BASE_URL,
     trace: "retain-on-failure",
