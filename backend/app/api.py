@@ -27,6 +27,7 @@ from app.analysis_runner import AnalysisRunner, get_analysis_runner
 from app.db import get_db_session
 from app.events import AnalysisEvent, default_event_bus
 from app.models import Scene
+from app.scenario_loader import load_demo_scenario
 from app.schemas import (
     ProductionHealthSchema,
     TodaySceneProgressSchema,
@@ -61,48 +62,38 @@ def get_runtime_metadata(request: Request, response: Response) -> dict:
 
 
 @router.get("/api/production/health")
-def get_production_health(db: Session = Depends(get_db_session)) -> ProductionHealthSchema:
-    """Production Health summary (SPEC §9.1)."""
+def get_production_health(db: Session = Depends(get_db_session)) -> dict:
+    """Production Health summary endpoint (SPEC §3.4, §9.1)."""
     active_incidents = (
         db.execute(select(Incident).where(Incident.resolved.is_(False))).scalars().all()
     )
     total_scenes = db.execute(select(Scene)).scalars().all()
+    scenario = load_demo_scenario()
+    prod = scenario.production
 
-    # Today's scenes progress (Scenes 38, 39, 40 per SPEC §9.1)
     today_scenes = [
         TodaySceneProgressSchema(
-            scene_id="SC-038",
-            name="Scene 38 — Alleyway Chase",
-            status=TodaySceneStatus.COMPLETED,
-            progress_percent=100,
-        ),
-        TodaySceneProgressSchema(
-            scene_id="SC-039",
-            name="Scene 39 — Subway Escape",
-            status=TodaySceneStatus.COMPLETED,
-            progress_percent=100,
-        ),
-        TodaySceneProgressSchema(
-            scene_id="SC-040",
-            name="Scene 40 — Safehouse Planning",
-            status=TodaySceneStatus.SHOOTING,
-            progress_percent=60,
-        ),
+            scene_id=s.scene_id,
+            name=s.name,
+            status=TodaySceneStatus(s.status),
+            progress_percent=int(s.progress_percent),
+        )
+        for s in scenario.today_scenes
     ]
 
     return ProductionHealthSchema(
-        production_day_current=27,
-        production_day_total=54,
-        schedule_adherence_percent=94.0,
-        budget_spent_usd=12_400_000.0,
-        budget_total_usd=20_000_000.0,
-        scenes_completed=82,
-        scenes_total=143,
-        overall_risk="MEDIUM" if len(active_incidents) > 0 else "LOW",
-        total_scenes=max(len(total_scenes), 143),
+        production_day_current=prod.production_day_current,
+        production_day_total=prod.production_day_total,
+        schedule_adherence_percent=prod.schedule_adherence_percent,
+        budget_spent_usd=prod.budget_spent_usd,
+        budget_total_usd=prod.budget_total_usd,
+        scenes_completed=prod.scenes_completed,
+        scenes_total=prod.scenes_total,
+        overall_risk=prod.overall_risk if len(active_incidents) > 0 else "LOW",
+        total_scenes=max(len(total_scenes), prod.scenes_total),
         active_incidents=len(active_incidents),
         today_scenes=today_scenes,
-    )
+    ).model_dump(mode="json")
 
 
 @router.post("/api/demo/reset")

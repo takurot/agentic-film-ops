@@ -11,13 +11,14 @@ export const Scene4_NetworkMcp: React.FC = () => {
 
   // Network Nodes for deterministic video layout
   const nodes = [
-    { id: "weather", label: "⛈ Storm Front", sub: "Cliffside Vista", x: 100, y: 80, color: "border-red-500 bg-red-950/80 text-red-300" },
-    { id: "scene42", label: "🎬 Scene 42 (Ext)", sub: "Golden Hour", x: 320, y: 80, color: "border-amber-500 bg-amber-950/80 text-amber-300" },
-    { id: "stage2", label: "🏢 Stage 2 (Int)", sub: "Soundstage", x: 320, y: 260, color: "border-emerald-500 bg-emerald-950/80 text-emerald-300" },
-    { id: "actor", label: "🎭 Marcus Vance", sub: "Lead Cast", x: 100, y: 260, color: "border-cyan-500 bg-cyan-950/80 text-cyan-300" },
-    { id: "lighting", label: "💡 Lighting Package", sub: "CineRent B", x: 540, y: 170, color: "border-indigo-500 bg-indigo-950/80 text-indigo-300" },
-    { id: "schedule", label: "📅 Master Schedule", sub: "Day 12 Slate", x: 540, y: 340, color: "border-emerald-400 bg-emerald-950/80 text-emerald-200" },
+    { id: "weather", label: "🌧 Heavy Rain Alert", sub: "Shibuya Rooftop", x: 100, y: 80, color: "border-red-500 bg-red-950/80 text-red-300" },
+    { id: "scene42", label: "🎬 Scene 42 (Ext)", sub: "Shibuya Tower", x: 320, y: 80, color: "border-amber-500 bg-amber-950/80 text-amber-300" },
+    { id: "studiob", label: "🏢 Studio B (Int)", sub: "Soundstage", x: 320, y: 260, color: "border-emerald-500 bg-emerald-950/80 text-emerald-300" },
+    { id: "actor", label: "🎭 Emma & Daniel", sub: "Principal Cast", x: 100, y: 260, color: "border-cyan-500 bg-cyan-950/80 text-cyan-300" },
+    { id: "equipment", label: "💡 ARRI Alexa & Kit", sub: "Cinema Rental", x: 540, y: 170, color: "border-indigo-500 bg-indigo-950/80 text-indigo-300" },
+    { id: "schedule", label: "📅 Master Schedule", sub: "Day 27 Slate", x: 540, y: 340, color: "border-emerald-400 bg-emerald-950/80 text-emerald-200" },
   ];
+
 
   const visibleEventsCount = Math.min(
     mockEvents.length,

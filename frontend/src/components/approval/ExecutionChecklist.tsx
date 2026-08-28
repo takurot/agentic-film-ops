@@ -21,7 +21,8 @@ const SPEC_EXECUTION_ITEMS: ExecutionItem[] = [
     id: "actor-booking",
     label: "Actor booking updated",
     mcpCall: "actor.confirm_actor()",
-    details: "Emma Carter & Daniel Craig confirmed for revised slot",
+    details: "Emma Carter & Daniel confirmed for revised slot",
+
   },
   {
     id: "manager-notified",

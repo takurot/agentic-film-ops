@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import type { ActiveIncident, AnalysisData, ExecutionData } from "@/lib/api";
 import { isMCPCallEvent, type AnalysisEvent } from "@/lib/eventStream";
+import { canonicalScenario } from "@/lib/scenarioLoader";
+
 
 export interface BeforeAfterSummaryProps {
   incident: ActiveIncident;
@@ -235,9 +237,9 @@ export function BeforeAfterSummary({
         ? "$0"
         : "N/A";
 
-    // SPEC §9.11 Scene 42 standby penalty baseline is $79,800
-    const avoidedPenalty = 79800;
-    const netSavings = cost !== null ? avoidedPenalty - cost : avoidedPenalty;
+    const standbyPenalty = canonicalScenario.cost_benefit_model.standby_day_penalty_usd;
+    const netSavings =
+      cost !== null ? standbyPenalty - cost : canonicalScenario.cost_benefit_model.net_cost_avoided_usd;
 
     return {
       durationStr,
@@ -252,9 +254,10 @@ export function BeforeAfterSummary({
       scheduleDelayStr,
       costImpactStr,
       rawCost: cost,
-      avoidedPenalty,
+      avoidedPenalty: standbyPenalty,
       netSavings,
     };
+
   }, [incident, events, execution, analysis, selectedOption]);
 
   return (

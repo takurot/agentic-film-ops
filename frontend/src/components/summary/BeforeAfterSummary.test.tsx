@@ -372,10 +372,11 @@ describe("BeforeAfterSummary (SPEC §9.11)", () => {
     // Verify detailed formula and avoided costs
     const drillDown = screen.getByTestId("cost-drill-down");
     expect(drillDown).toHaveTextContent(/Avoided Standby Penalty/i);
-    expect(drillDown).toHaveTextContent(/\$79,800/i);
+    expect(drillDown).toHaveTextContent(/\$84,000/i);
     expect(drillDown).toHaveTextContent(/Net Estimated Savings/i);
-    expect(drillDown).toHaveTextContent(/\$71,400/i);
+    expect(drillDown).toHaveTextContent(/\$75,600/i);
   });
+
 
   it("displays Scenario fixture badge in RECORDED_REPLAY mode", () => {
     render(

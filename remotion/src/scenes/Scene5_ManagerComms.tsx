@@ -26,8 +26,8 @@ export const Scene5_ManagerComms: React.FC = () => {
                   🎭
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-white">Vance Talent Management</h4>
-                  <p className="font-mono text-xs text-zinc-400">Agent: Sarah Lin (Rep for Marcus Vance)</p>
+                  <h4 className="text-sm font-bold text-white">Talent Agency Management</h4>
+                  <p className="font-mono text-xs text-zinc-400">Agent Rep for Emma Carter (ACT-001)</p>
                 </div>
               </div>
               <span className="flex items-center gap-1.5 font-mono text-[10px] text-emerald-400">
@@ -48,10 +48,10 @@ export const Scene5_ManagerComms: React.FC = () => {
                     ACTOR AGENT (AUTOMATED OUTREACH)
                   </p>
                   <p>
-                    Urgent weather shift for Day 12: We need to pivot Scene 42 to Stage 2 Soundstage at 15:30. Can Marcus report to Stage 2 wardrobe by 15:15?
+                    Production schedule contingency request: Could Emma Carter shift Scene 42 filming to Wednesday 16:00–20:00 at Studio B?
                   </p>
                 </div>
-                <span className="mt-1 font-mono text-[10px] text-zinc-500">14:15:14 PST • Delivered</span>
+                <span className="mt-1 font-mono text-[10px] text-zinc-500">14:03 PST • Delivered</span>
               </div>
 
               {/* Incoming Message from Talent Manager */}
@@ -62,13 +62,13 @@ export const Scene5_ManagerComms: React.FC = () => {
                 >
                   <div className="max-w-md rounded-2xl rounded-tl-none bg-zinc-800 border border-zinc-700 px-4 py-3 text-xs text-zinc-200 shadow-lg">
                     <p className="font-mono text-[10px] text-cyan-400 uppercase font-bold mb-1">
-                      SARAH LIN (TALENT MANAGER)
+                      TALENT AGENCY MANAGER
                     </p>
                     <p>
-                      Marcus is already on the studio lot having lunch. He can report to Stage 2 wardrobe at 15:10. SAG-AFTRA 12hr turnaround remains compliant. Approved!
+                      Confirmed: Emma is available starting 16:00. Studio B location accepted. SAG-AFTRA turnaround rules compliant.
                     </p>
                   </div>
-                  <span className="mt-1 font-mono text-[10px] text-zinc-500">14:15:28 PST • Received</span>
+                  <span className="mt-1 font-mono text-[10px] text-zinc-500">14:07 PST • Received</span>
                 </div>
               )}
             </div>
@@ -101,11 +101,11 @@ export const Scene5_ManagerComms: React.FC = () => {
                 </div>
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3">
                   <span className="text-zinc-400">call_time_agreed:</span>{" "}
-                  <span className="font-bold text-cyan-300">"15:10 PST"</span>
+                  <span className="font-bold text-cyan-300">"16:00 PST"</span>
                 </div>
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3">
                   <span className="text-zinc-400">location_confirmed:</span>{" "}
-                  <span className="font-bold text-zinc-200">"Stage 2 Soundstage"</span>
+                  <span className="font-bold text-zinc-200">"Studio B Soundstage"</span>
                 </div>
                 <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3">
                   <span className="text-zinc-400">sag_turnaround_compliant:</span>{" "}
@@ -113,6 +113,7 @@ export const Scene5_ManagerComms: React.FC = () => {
                 </div>
               </div>
             )}
+
           </div>
 
           <div className="mt-4 rounded-lg bg-zinc-900 border border-zinc-800 p-3 font-mono text-[10px] text-zinc-400 flex items-center justify-between">

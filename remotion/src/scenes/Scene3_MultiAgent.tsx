@@ -21,10 +21,10 @@ export const Scene3_MultiAgent: React.FC = () => {
     {
       name: "Weather Agent",
       role: "Atmospheric Telemetry & Forecasts",
-      tool: "weather_mcp.get_hourly_radar",
+      tool: "weather_mcp.get_forecast",
       status: frame > 60 ? "COMPLETED" : "ACTIVE",
       latency: "142ms",
-      log: frame > 60 ? "Precipitation 92% confirmed at 16:30. Outdoor filming hazardous." : "Polling Doppler radar stations near Cliffside Vista...",
+      log: frame > 60 ? "Precipitation 92% confirmed at 14:00. Outdoor rooftop filming impossible." : "Polling radar stations near Shibuya Tower rooftop...",
       icon: "🌤",
     },
     {
@@ -33,34 +33,34 @@ export const Scene3_MultiAgent: React.FC = () => {
       tool: "script_mcp.get_scene_breakdown",
       status: frame > 180 ? "COMPLETED" : "ACTIVE",
       latency: "280ms",
-      log: frame > 180 ? "Identified Scene 58 (Stage 2 Interior) shares exact cast (Marcus & Elena)." : "Extracting character presence & lighting specs for Day 12 scenes...",
+      log: frame > 180 ? "Scene 42 constraints: Emma Carter (ACT-001) & Daniel (ACT-002) required." : "Extracting character presence & lighting specs for Day 27 scenes...",
       icon: "📜",
     },
     {
       name: "Location Agent",
       role: "Permits & Studio Stage Booking",
-      tool: "location_mcp.check_stage_availability",
+      tool: "location_mcp.find_alternative_locations",
       status: frame > 240 ? "COMPLETED" : "ACTIVE",
       latency: "190ms",
-      log: frame > 240 ? "Stage 2 Soundstage confirmed free from 15:00. Facility hold placed." : "Checking soundstage calendars and studio lot permits...",
+      log: frame > 240 ? "Studio B Soundstage confirmed free from 16:00. Facility hold placed." : "Checking soundstage calendars and studio lot permits...",
       icon: "📍",
     },
     {
       name: "Actor Agent",
       role: "Talent Availability & Guild Rules",
-      tool: "actor_mcp.query_talent_availability",
+      tool: "actor_mcp.get_actor_availability",
       status: frame > 300 ? "COMPLETED" : "ACTIVE",
       latency: "310ms",
-      log: frame > 300 ? "SAG-AFTRA 12hr turnaround valid. Talent ready for Stage 2 call." : "Negotiating schedule adjustment with Vance Management...",
+      log: frame > 300 ? "SAG-AFTRA turnaround valid. Emma Carter & Daniel confirmed for Studio B." : "Negotiating schedule adjustment with Talent Agency...",
       icon: "🎭",
     },
     {
       name: "Equipment Agent",
       role: "Camera, Lighting & Grip Logistics",
-      tool: "equipment_mcp.reallocate_lighting",
+      tool: "equipment_mcp.reallocate",
       status: frame > 360 ? "COMPLETED" : "ACTIVE",
       latency: "215ms",
-      log: frame > 360 ? "CineRent Lighting Package B re-routed to Stage 2. Truck in transit." : "Querying rental inventory and staging truck locations...",
+      log: frame > 360 ? "ARRI Alexa 35 & Lighting Kit EQ-004 re-routed to Studio B." : "Querying rental inventory and staging truck locations...",
       icon: "🎥",
     },
     {
@@ -69,10 +69,11 @@ export const Scene3_MultiAgent: React.FC = () => {
       tool: "solver.generate_pareto_replans",
       status: frame > 400 ? "COMPLETED" : "ACTIVE",
       latency: "450ms",
-      log: frame > 400 ? "Generated 3 validated replan candidates. Option A Pareto-optimal (Score 9.6)." : "Evaluating combinatorial cost deltas and wrap date constraints...",
+      log: frame > 400 ? "Synthesized 3 replans. Option A Pareto-optimal (+$4.2k vs $79.8k saved)." : "Evaluating combinatorial cost deltas and wrap date constraints...",
       icon: "📊",
     },
   ];
+
 
   return (
     <UIWrapper

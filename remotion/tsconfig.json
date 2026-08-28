@@ -17,7 +17,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@frontend/*": ["../frontend/src/*"]
+      "@frontend/*": ["../frontend/src/*"],
+      "@scenario/*": ["../scenario/*"]
     }
   },
   "include": ["src", "remotion.config.ts"]

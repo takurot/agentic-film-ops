@@ -1,0 +1,358 @@
+{
+  "$schema": "./scenario.schema.json",
+  "meta": {
+    "scenario_id": "SCENARIO-SC042-RAIN-V1",
+    "version": "1.0.0",
+    "title": "Scene 42 Weather Disruption & Autonomous Replan",
+    "description": "Heavy rain threat at Shibuya Tower Rooftop shoot on Day 27 triggering multi-agent impact analysis, candidate option synthesis, and autonomous execution to Studio B Soundstage."
+  },
+  "production": {
+    "production_day_current": 27,
+    "production_day_total": 54,
+    "schedule_adherence_percent": 94.0,
+    "budget_spent_usd": 12400000.0,
+    "budget_total_usd": 20000000.0,
+    "scenes_completed": 82,
+    "scenes_total": 143,
+    "overall_risk": "MEDIUM"
+  },
+  "today_scenes": [
+    {
+      "scene_id": "SC-038",
+      "name": "Scene 38 — Alleyway Pursuit",
+      "status": "COMPLETED",
+      "progress_percent": 100
+    },
+    {
+      "scene_id": "SC-039",
+      "name": "Scene 39 — Subway Escape",
+      "status": "COMPLETED",
+      "progress_percent": 100
+    },
+    {
+      "scene_id": "SC-040",
+      "name": "Scene 40 — Safehouse Planning",
+      "status": "SHOOTING",
+      "progress_percent": 60
+    }
+  ],
+
+  "resources": {
+    "actors": [
+      {
+        "id": "ACT-001",
+        "name": "Emma Carter",
+        "role": "Principal Lead (Agent Miller)",
+        "manager_id": "MGR-001",
+        "manager_name": "Talent Agency — Emma Carter's Agent",
+        "daily_rate_usd": 15000,
+        "status": "confirmed"
+      },
+      {
+        "id": "ACT-002",
+        "name": "Daniel",
+        "role": "Principal Lead (Viktor)",
+        "manager_id": "MGR-002",
+        "manager_name": "Talent Agency — Daniel's Agent",
+        "daily_rate_usd": 12000,
+        "status": "confirmed"
+      }
+    ],
+    "equipment": [
+      {
+        "id": "EQ-001",
+        "name": "ARRI Alexa 35",
+        "vendor": "Cinema Rental Tokyo",
+        "daily_cost": 1200,
+        "type": "camera"
+      },
+      {
+        "id": "EQ-004",
+        "name": "Lighting Kit",
+        "vendor": "Cinema Rental Tokyo",
+        "daily_cost": 400,
+        "type": "lighting"
+      }
+    ],
+    "locations": [
+      {
+        "id": "LOC-003",
+        "name": "Rooftop, Shibuya Tower",
+        "type": "outdoor",
+        "manager": "Shibuya Tower Building Management",
+        "daily_cost": 3000,
+        "weather_dependent": true,
+        "status": "available"
+      },
+      {
+        "id": "LOC-STUDIO-B",
+        "name": "Studio B",
+        "type": "indoor",
+        "manager": "Studio B Facilities",
+        "daily_cost": 2200,
+        "weather_dependent": false,
+        "status": "available"
+      }
+    ],
+    "crew": [
+      {
+        "id": "CREW-001",
+        "name": "Kenji Sato",
+        "role": "Camera Operator",
+        "overtime_rate_per_hour": 150
+      }
+    ],
+    "scenes": [
+      {
+        "scene_id": "SC-038",
+        "name": "Alleyway Chase",
+        "type": "outdoor",
+        "duration_hours": 4,
+        "scheduled": "2026-09-01T09:00",
+        "location_id": null
+      },
+      {
+        "scene_id": "SC-039",
+        "name": "Subway Escape",
+        "type": "indoor",
+        "duration_hours": 3,
+        "scheduled": "2026-09-01T13:00",
+        "location_id": null
+      },
+      {
+        "scene_id": "SC-040",
+        "name": "Safehouse Planning",
+        "type": "indoor",
+        "duration_hours": 4,
+        "scheduled": "2026-09-01T16:00",
+        "location_id": null
+      },
+      {
+        "scene_id": "SC-042",
+        "name": "Rooftop confrontation",
+        "type": "outdoor",
+        "duration_hours": 4,
+        "scheduled": "2026-09-02T14:00",
+        "location_id": "LOC-003"
+      }
+    ],
+    "continuity": {
+      "scene_id": "SC-042",
+      "must_precede": ["SC-050"],
+      "must_follow": ["SC-039"],
+      "same_day_as": []
+    }
+  },
+  "incident": {
+    "incident_id": "INC-20260902-001",
+    "scene_id": "SC-042",
+    "type": "WEATHER",
+    "severity": "CRITICAL",
+    "headline": "Weather Alert: Heavy Rain Threatens Scene 42 (Rooftop confrontation)",
+    "detail": "Heavy rain forecasted (92% probability, 18mm/h) during scheduled outdoor rooftop shoot on Shibuya Tower. Outdoor filming impossible without severe risk to camera rig and principal talent.",
+    "detected_at": "2026-09-02T14:00:00Z",
+    "resolved": false
+  },
+  "external_comms": {
+    "channel": "TALENT_MANAGEMENT",
+    "sender": "Actor Agent (AI)",
+    "recipient": "Talent Agency Management (Emma Carter)",
+    "dialogue": [
+      {
+        "timestamp": "14:03",
+        "speaker": "AI",
+        "text": "Production schedule contingency request: Could Emma Carter shift Scene 42 filming to Wednesday 16:00–20:00 at Studio B?"
+      },
+      {
+        "timestamp": "14:07",
+        "speaker": "Manager",
+        "text": "Confirmed: Emma is available starting 16:00. Studio B location accepted."
+      }
+    ]
+  },
+  "options": [
+    {
+      "option_id": "OPT-A",
+      "label": "Option A: Reschedule to Studio B Interior",
+      "cost_impact": 4200,
+      "cost_impact_usd": 4200,
+      "schedule_delay_days": 0,
+      "delay_days": 0,
+      "delay_hours": 1.5,
+      "risk": "LOW",
+      "base_risk": "LOW",
+      "recommended": true,
+      "summary": "Move Scene 42 to Studio B soundstage. Emma Carter & Daniel are available, zero wrap date drift.",
+      "checklist": [
+        "Confirm Studio B booking with Facility Manager",
+        "Re-route ARRI Alexa 35 & Lighting Kit EQ-004 to Studio B",
+        "Issue revised Call Sheets to Emma Carter & Daniel",
+        "Update Master Production Slate in Script MCP"
+      ],
+      "why": "Studio B is confirmed available and weather-protected. Cast and camera crew turnaround complies with SAG-AFTRA rules. Saves $79,800 in idle crew turnaround costs.",
+      "tradeoffs": ["+$4,200 studio rental variance", "1.5h lighting reconfiguration"],
+      "start_time": "2026-09-02T16:00",
+      "end_time": "2026-09-02T20:00",
+      "location_id": "LOC-STUDIO-B",
+      "target_scene_id": "SC-042",
+      "explainability": {
+        "rationale": "Studio B is confirmed available and weather-protected. Cast and camera crew turnaround complies with SAG-AFTRA rules. Saves $79,800 in idle crew turnaround costs.",
+        "tradeoff_score": 9.6
+      }
+    },
+    {
+      "option_id": "OPT-B",
+      "label": "Option B: Delay Shoot 1 Day & Stand Down Crew",
+      "cost_impact": 42000,
+      "cost_impact_usd": 42000,
+      "schedule_delay_days": 1,
+      "delay_days": 1,
+      "delay_hours": 10.0,
+      "risk": "MEDIUM",
+      "base_risk": "MEDIUM",
+      "recommended": false,
+      "summary": "Wait for storm front to clear tomorrow afternoon. Extend Shibuya Tower rooftop permit.",
+      "checklist": [
+        "Notify Shibuya Tower building management for permit extension",
+        "Pay standby union rate for 48 crew members",
+        "Re-coordinate Emma Carter & Daniel schedule for Day 28"
+      ],
+      "why": "Preserves the original outdoor rooftop visual aesthetic at the cost of 1-day wrap schedule drift and $42,000 idle crew penalty.",
+      "tradeoffs": ["+$42,000 union standby penalty", "+1 day production delay", "Permit re-issuance fee"],
+      "start_time": "2026-09-03T14:00",
+      "end_time": "2026-09-03T18:00",
+      "location_id": "LOC-003",
+      "target_scene_id": "SC-042",
+      "explainability": {
+        "rationale": "Preserves the original outdoor rooftop visual aesthetic at the cost of 1-day wrap schedule drift and $42,000 idle crew penalty.",
+        "tradeoff_score": 5.4
+      }
+    },
+    {
+      "option_id": "OPT-C",
+      "label": "Option C: Convert to Night Shoot with Wet-Down Look",
+      "cost_impact": 18500,
+      "cost_impact_usd": 18500,
+      "schedule_delay_days": 0,
+      "delay_days": 0,
+      "delay_hours": 3.5,
+      "risk": "HIGH",
+      "base_risk": "HIGH",
+      "recommended": false,
+      "summary": "Embrace rain atmosphere with heavy industrial lighting package and rain towers.",
+      "checklist": [
+        "Order specialized weatherproofing rain enclosures for ARRI Alexa 35",
+        "Script supervisor rewrite approval for rainy aesthetic",
+        "Safety coordinator clearance for electrical rigging on wet rooftop"
+      ],
+      "why": "Avoids soundstage relocation by altering dramatic tone, but introduces elevated safety risks on wet rooftop.",
+      "tradeoffs": ["+$18,500 weather-proofing equipment & crew night differential", "High safety hazard rating", "3.5h delay for nightfall"],
+      "start_time": "2026-09-02T20:00",
+      "end_time": "2026-09-03T00:00",
+      "location_id": "LOC-003",
+      "target_scene_id": "SC-042",
+      "explainability": {
+        "rationale": "Avoids soundstage relocation by altering dramatic tone, but introduces elevated safety risks on wet rooftop.",
+        "tradeoff_score": 4.2
+      }
+    }
+  ],
+  "cost_benefit_model": {
+    "standby_day_penalty_usd": 84000,
+    "option_a_variance_usd": 4200,
+    "net_cost_avoided_usd": 79800,
+    "formula": "standby_day_penalty_usd - option_a_variance_usd = net_cost_avoided_usd",
+    "assumptions": {
+      "union_crew_headcount": 48,
+      "lost_shoot_day_cost_usd": 84000,
+      "studio_b_daily_rate_usd": 2200,
+      "weather_damage_risk_avoided": true
+    }
+  },
+  "execution": {
+    "status": "COMPLETED",
+    "steps": [
+      "Location LOC-STUDIO-B confirmed (2026-09-02T16:00 - 2026-09-02T20:00)",
+      "Actor Emma Carter (ACT-001) booking confirmed",
+      "Actor Daniel (ACT-002) booking confirmed",
+      "Equipment ARRI Alexa 35 (EQ-001) reservation extended",
+      "Equipment Lighting Kit (EQ-004) reservation extended",
+      "Scene SC-042 schedule updated to 2026-09-02T16:00 at LOC-STUDIO-B",
+      "Incident INC-20260902-001 marked resolved"
+    ]
+  },
+  "stream_events": [
+    {
+      "timestamp": "2026-09-02T14:00:01Z",
+      "event_id": "EVT-001",
+      "agent": "Weather Agent",
+      "type": "STATUS",
+      "status": "ANALYZING",
+      "message": "Heavy rain forecasted (92% probability) at Rooftop, Shibuya Tower for Scene 42",
+      "resource": "LOC-003"
+    },
+    {
+      "timestamp": "2026-09-02T14:00:02Z",
+      "event_id": "EVT-002",
+      "agent": "Script Agent",
+      "type": "STATUS",
+      "status": "ANALYZING",
+      "message": "Scene 42 requires Emma Carter (ACT-001), Daniel (ACT-002), ARRI Alexa 35 (EQ-001)",
+      "resource": "SC-042"
+    },
+    {
+      "timestamp": "2026-09-02T14:00:03Z",
+      "event_id": "EVT-003",
+      "agent": "Location Agent",
+      "type": "STATUS",
+      "status": "ANALYZING",
+      "message": "Studio B (LOC-STUDIO-B) is available indoor alternative ($2,200/day)",
+      "resource": "LOC-STUDIO-B"
+    },
+    {
+      "timestamp": "2026-09-02T14:00:04Z",
+      "event_id": "EVT-004",
+      "agent": "Actor Agent",
+      "type": "STATUS",
+      "status": "ANALYZING",
+      "message": "Emma Carter's agent and Daniel confirmed available for Wed 16:00-20:00",
+      "resource": "ACT-001"
+    },
+    {
+      "timestamp": "2026-09-02T14:00:05Z",
+      "event_id": "EVT-005",
+      "agent": "Equipment Agent",
+      "type": "STATUS",
+      "status": "ANALYZING",
+      "message": "ARRI Alexa 35 and Lighting Kit confirmed available for Studio B slot",
+      "resource": "EQ-001"
+    },
+    {
+      "timestamp": "2026-09-02T14:00:06Z",
+      "event_id": "EVT-006",
+      "agent": "Budget Agent",
+      "type": "STATUS",
+      "status": "ANALYZING",
+      "message": "Replan Option A cost impact calculated: +$4,200 (avoids $84,000 idle day penalty, saving $79,800)",
+      "resource": "SC-042"
+    },
+    {
+      "timestamp": "2026-09-02T14:00:07Z",
+      "event_id": "EVT-007",
+      "agent": "Schedule Agent",
+      "type": "STATUS",
+      "status": "ANALYZING",
+      "message": "Synthesized 3 Pareto-optimal replan candidates. Option A Recommended (zero schedule drift).",
+      "resource": "SC-042"
+    },
+    {
+      "timestamp": "2026-09-02T14:00:08Z",
+      "event_id": "EVT-008",
+      "agent": "Orchestrator",
+      "type": "STATUS",
+      "status": "ANALYZING",
+      "message": "Multi-agent analysis completed: 3 feasible replan options formulated. Awaiting Producer approval.",
+      "resource": "SC-042"
+    }
+  ]
+}
