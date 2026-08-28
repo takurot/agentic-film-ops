@@ -5,12 +5,14 @@ export type AgentEventStatus =
 
 export interface AgentEvent {
   timestamp: string; agent: string; type: string; status: AgentEventStatus;
-  message: string; resource?: string | null;
+  message: string; resource?: string | null; event_id?: string | null;
+  resource_type?: string | null;
 }
 export type MCPCallStatus = "QUERYING_MCP" | "RESPONSE_RECEIVED" | "FAILED";
 export interface MCPCallEvent {
   timestamp: string; type: "MCP_CALL"; server: string; tool: string;
   status: MCPCallStatus; message: string; resource?: string | null;
+  call_id?: string | null;
 }
 export type AnalysisEvent = AgentEvent | MCPCallEvent;
 export type EventStreamState = "CONNECTING" | "CONNECTED" | "RETRYING" | "FAILED" | "CLOSED";
@@ -38,13 +40,18 @@ export function parseAnalysisEvent(value: unknown): AnalysisEvent | null {
   const candidate = value as Record<string, unknown>;
   if (!boundedString(candidate.timestamp, MAX_IDENTIFIER_LENGTH) || !boundedString(candidate.message)) return null;
   if (candidate.resource != null && !boundedString(candidate.resource, MAX_RESOURCE_LENGTH)) return null;
+  if (candidate.call_id != null && !boundedString(candidate.call_id, MAX_IDENTIFIER_LENGTH)) return null;
+  if (candidate.event_id != null && !boundedString(candidate.event_id, MAX_IDENTIFIER_LENGTH)) return null;
+  if (candidate.resource_type != null && !boundedString(candidate.resource_type, MAX_IDENTIFIER_LENGTH)) return null;
   if (candidate.type === "MCP_CALL") {
     if (!boundedString(candidate.server, MAX_IDENTIFIER_LENGTH) || !boundedString(candidate.tool, MAX_IDENTIFIER_LENGTH)) return null;
     if (!MCP_STATUSES.has(candidate.status as MCPCallStatus)) return null;
     return {
       timestamp: candidate.timestamp, type: "MCP_CALL", server: candidate.server,
       tool: candidate.tool, status: candidate.status as MCPCallStatus,
-      message: candidate.message, ...(candidate.resource != null ? { resource: candidate.resource } : {}),
+      message: candidate.message,
+      ...(candidate.resource != null ? { resource: candidate.resource } : {}),
+      ...(candidate.call_id != null ? { call_id: candidate.call_id } : {}),
     };
   }
   if (!boundedString(candidate.agent, MAX_IDENTIFIER_LENGTH) || !boundedString(candidate.type, MAX_IDENTIFIER_LENGTH)) return null;
@@ -53,8 +60,11 @@ export function parseAnalysisEvent(value: unknown): AnalysisEvent | null {
     timestamp: candidate.timestamp, agent: candidate.agent, type: candidate.type,
     status: candidate.status as AgentEventStatus, message: candidate.message,
     ...(candidate.resource != null ? { resource: candidate.resource } : {}),
+    ...(candidate.event_id != null ? { event_id: candidate.event_id } : {}),
+    ...(candidate.resource_type != null ? { resource_type: candidate.resource_type } : {}),
   };
 }
+
 export function isMCPCallEvent(event: AnalysisEvent): event is MCPCallEvent {
   return event.type === "MCP_CALL";
 }

@@ -11,6 +11,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -270,6 +271,7 @@ class MCPStdioClient:
         if not self._started:
             raise MCPTransportError("MCP_CLIENT_NOT_STARTED")
 
+        call_id = f"mcp-{uuid.uuid4().hex[:12]}"
         channel = current_event_channel.get()
         resource = next(
             (str(value) for key, value in arguments.items() if key.endswith("_id")), None
@@ -278,6 +280,7 @@ class MCPStdioClient:
             self._event_bus.publish(
                 channel,
                 MCPCallEvent.create(
+                    call_id=call_id,
                     server=server,
                     tool=tool,
                     status="QUERYING_MCP",
@@ -293,19 +296,20 @@ class MCPStdioClient:
             )
             decoded = decode_tool_result(result)
         except TimeoutError as exc:
-            self._publish_failure(channel, server, tool, resource)
+            self._publish_failure(channel, server, tool, resource, call_id=call_id)
             raise MCPTransportError("MCP_CALL_TIMEOUT") from exc
         except MCPError:
-            self._publish_failure(channel, server, tool, resource)
+            self._publish_failure(channel, server, tool, resource, call_id=call_id)
             raise
         except Exception as exc:
-            self._publish_failure(channel, server, tool, resource)
+            self._publish_failure(channel, server, tool, resource, call_id=call_id)
             raise MCPTransportError("MCP_CALL_FAILED") from exc
 
         if channel is not None:
             self._event_bus.publish(
                 channel,
                 MCPCallEvent.create(
+                    call_id=call_id,
                     server=server,
                     tool=tool,
                     status="RESPONSE_RECEIVED",
@@ -321,11 +325,13 @@ class MCPStdioClient:
         server: str,
         tool: str,
         resource: str | None,
+        call_id: str | None = None,
     ) -> None:
         if channel is not None:
             self._event_bus.publish(
                 channel,
                 MCPCallEvent.create(
+                    call_id=call_id,
                     server=server,
                     tool=tool,
                     status="FAILED",

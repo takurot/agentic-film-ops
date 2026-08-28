@@ -28,6 +28,9 @@ async def test_tool_call_emits_querying_then_response_received_events():
     statuses = [e.status for e in events]
     assert statuses == ["QUERYING_MCP", "RESPONSE_RECEIVED"]
     assert all(e.tool == "get_forecast" and e.server == "weather" for e in events)
+    assert events[0].call_id is not None
+    assert events[0].call_id == events[1].call_id
+    assert events[0].call_id.startswith("mcp-")
 
 
 async def test_tool_call_emits_failed_event_and_reraises_on_error():
@@ -44,6 +47,8 @@ async def test_tool_call_emits_failed_event_and_reraises_on_error():
 
     statuses = [e.status for e in events]
     assert statuses == ["QUERYING_MCP", "FAILED"]
+    assert events[0].call_id is not None
+    assert events[0].call_id == events[1].call_id
 
 
 async def test_tool_call_surfaces_resource_arg_on_events():

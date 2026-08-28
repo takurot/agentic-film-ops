@@ -45,6 +45,8 @@ class AgentEvent(BaseModel):
     status: AgentEventStatus
     message: str
     resource: str | None = None
+    event_id: str | None = None
+    resource_type: str | None = None
 
     @classmethod
     def create(
@@ -55,6 +57,8 @@ class AgentEvent(BaseModel):
         status: AgentEventStatus,
         message: str,
         resource: str | None = None,
+        event_id: str | None = None,
+        resource_type: str | None = None,
     ) -> "AgentEvent":
         """Build an event with `timestamp` filled in, mirroring
         `MCPCallEvent.create` (mcp_common/events.py) so Agents don't each
@@ -66,6 +70,8 @@ class AgentEvent(BaseModel):
             status=status,
             message=message,
             resource=resource,
+            event_id=event_id,
+            resource_type=resource_type,
         )
 
 

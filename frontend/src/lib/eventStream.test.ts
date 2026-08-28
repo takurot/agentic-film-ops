@@ -25,7 +25,40 @@ describe("bounded EventSource controller", () => {
     expect(parseAnalysisEvent({ ...agentEvent, message: "x".repeat(2001) })).toBeNull();
     expect(parseAnalysisEvent({ ...agentEvent, status: "UNKNOWN" })).toBeNull();
     expect(parseAnalysisEvent({ ...agentEvent, padding: "x".repeat(100_000) })).toEqual(agentEvent);
+    expect(
+      parseAnalysisEvent({
+        ...agentEvent,
+        event_id: "evt-123",
+        resource_type: "actor",
+      })
+    ).toEqual({
+      ...agentEvent,
+      event_id: "evt-123",
+      resource_type: "actor",
+    });
+    expect(
+      parseAnalysisEvent({
+        timestamp: "2026-01-01T00:00:00Z",
+        type: "MCP_CALL",
+        server: "weather",
+        tool: "get_forecast",
+        status: "RESPONSE_RECEIVED",
+        message: "done",
+        resource: "LOC-003",
+        call_id: "mcp-test-call-1",
+      })
+    ).toEqual({
+      timestamp: "2026-01-01T00:00:00Z",
+      type: "MCP_CALL",
+      server: "weather",
+      tool: "get_forecast",
+      status: "RESPONSE_RECEIVED",
+      message: "done",
+      resource: "LOC-003",
+      call_id: "mcp-test-call-1",
+    });
   });
+
   it("closes the old source before each bounded retry", () => {
     const states: string[] = [];
     connectEventStream("https://api.test/events", vi.fn(), { maxRetries: 2, baseRetryMs: 10, random: () => 0.5, onStateChange: (s) => states.push(s) });

@@ -9,9 +9,11 @@ def test_mcp_call_event_create_stamps_a_hh_mm_ss_timestamp():
         tool="get_forecast",
         status="QUERYING_MCP",
         message="Calling get_forecast",
+        call_id="mcp-test-123",
     )
 
     assert event.type == "MCP_CALL"
+    assert event.call_id == "mcp-test-123"
     assert re.fullmatch(r"\d{2}:\d{2}:\d{2}", event.timestamp)
 
 

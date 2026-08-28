@@ -6,6 +6,7 @@ event logging, and FAILED-status error propagation are handled here once.
 """
 
 import functools
+import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
@@ -49,9 +50,11 @@ class MCPCommonServer:
 
             @functools.wraps(func)
             async def wrapper(*args: Any, **kwargs: Any) -> Any:
+                call_id = f"mcp-{uuid.uuid4().hex[:12]}"
                 resource = kwargs.get(resource_arg) if resource_arg else None
                 self.event_sink.publish(
                     MCPCallEvent.create(
+                        call_id=call_id,
                         server=self.name,
                         tool=tool_name,
                         status="QUERYING_MCP",
@@ -65,6 +68,7 @@ class MCPCommonServer:
                 except Exception as exc:
                     self.event_sink.publish(
                         MCPCallEvent.create(
+                            call_id=call_id,
                             server=self.name,
                             tool=tool_name,
                             status="FAILED",
@@ -76,6 +80,7 @@ class MCPCommonServer:
 
                 self.event_sink.publish(
                     MCPCallEvent.create(
+                        call_id=call_id,
                         server=self.name,
                         tool=tool_name,
                         status="RESPONSE_RECEIVED",

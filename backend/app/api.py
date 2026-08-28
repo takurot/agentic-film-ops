@@ -204,9 +204,16 @@ async def analysis_events_ws(websocket: WebSocket, analysis_id: str) -> None:
     queue = default_event_bus.subscribe(analysis_id, replay_history=True)
     try:
         while True:
-            event: AnalysisEvent = await queue.get()
-            await websocket.send_json(event.model_dump(mode="json"))
-    except WebSocketDisconnect:
+            try:
+                event: AnalysisEvent = await asyncio.wait_for(queue.get(), timeout=1.0)
+                await websocket.send_json(event.model_dump(mode="json"))
+            except TimeoutError:
+                if (
+                    getattr(websocket.client_state, "name", None) == "DISCONNECTED"
+                    or getattr(websocket.application_state, "name", None) == "DISCONNECTED"
+                ):
+                    break
+    except (WebSocketDisconnect, RuntimeError):
         pass
     finally:
         default_event_bus.unsubscribe(analysis_id, queue)
