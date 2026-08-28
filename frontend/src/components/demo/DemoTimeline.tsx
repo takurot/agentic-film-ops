@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 /**
- * DemoTimeline – Floating demo navigator per SPEC §2.2.
+ * DemoTimeline – Floating demo navigator per SPEC §2.2 & Issue #85.
  *
  * Shows the 4-minute beat markers and auto-advances based on elapsed wall time.
  * Each beat maps to a SPEC §15 success criterion so judges can follow without narration.
- * Supports minimize/dock mode to prevent viewport overlap on smaller displays.
+ * Defaults to minimized dock mode on mobile/tablet viewports (< 768px) to prevent covering action CTAs.
  */
 
 interface Beat {
@@ -45,6 +45,26 @@ const CRITERIA_LABELS: Record<number, string> = {
   6: "Closed-Loop Incident Resolution",
 };
 
+function subscribeMediaQuery(callback: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return () => {};
+  }
+  const mql = window.matchMedia("(max-width: 767px)");
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+
+function getMobileSnapshot() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(max-width: 767px)").matches;
+}
+
+function getServerSnapshot() {
+  return false;
+}
+
 export interface DemoTimelineProps {
   /** Override elapsed seconds (useful for testing). If undefined, uses real wall time. */
   elapsedSeconds?: number;
@@ -62,9 +82,14 @@ export function DemoTimeline({
   replay = false,
 }: DemoTimelineProps) {
   const [startTime] = useState(() => Date.now());
-  // wallElapsed is only used when elapsedSeconds prop is not provided
   const [wallElapsed, setWallElapsed] = useState(0);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const isMobile = useSyncExternalStore(
+    subscribeMediaQuery,
+    getMobileSnapshot,
+    getServerSnapshot
+  );
+  const [userMinimized, setUserMinimized] = useState<boolean | null>(null);
+  const isMinimized = userMinimized ?? isMobile;
 
   // Wall-clock tracking — only runs when NOT controlled by elapsedSeconds prop
   useEffect(() => {
@@ -103,23 +128,23 @@ export function DemoTimeline({
       <div
         id="demo-overlay"
         aria-label="Demo Timeline (Minimized)"
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-2.5 rounded-full border border-zinc-700 bg-zinc-950/95 px-4 py-2 shadow-2xl backdrop-blur-md transition-all hover:border-zinc-500 animate-fadeIn"
+        className="fixed bottom-3 right-3 z-30 flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-950/95 px-3 py-1.5 shadow-2xl backdrop-blur-md transition-all hover:border-zinc-500 animate-fadeIn"
       >
         <span className="relative flex h-2 w-2">
-          {!replay && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />}
+          {!replay && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75 motion-reduce:animate-none" />}
           <span className={`relative inline-flex h-2 w-2 rounded-full ${replay ? "bg-amber-400" : "bg-red-500"}`} />
         </span>
         <span className="font-mono text-xs font-bold text-zinc-200">
-          {formatTime(displayElapsed)} / {formatTime(totalSeconds)}
+          {formatTime(displayElapsed)}
         </span>
-        <span className="rounded bg-zinc-800 px-2 py-0.5 font-mono text-[10px] text-zinc-300">
+        <span className="hidden xs:inline rounded bg-zinc-800 px-2 py-0.5 font-mono text-[10px] text-zinc-300">
           {activeBeat.label}
         </span>
         <button
           type="button"
           aria-label="Expand demo timeline"
-          onClick={() => setIsMinimized(false)}
-          className="rounded p-1 text-xs text-zinc-400 hover:text-zinc-100 transition-colors"
+          onClick={() => setUserMinimized(false)}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
           title="Expand timeline"
         >
           ▲
@@ -129,7 +154,7 @@ export function DemoTimeline({
             type="button"
             onClick={onClose}
             aria-label="Close demo timeline"
-            className="rounded p-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition-colors focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
           >
             ✕
           </button>
@@ -142,21 +167,21 @@ export function DemoTimeline({
     <div
       id="demo-overlay"
       aria-label="Demo Timeline"
-      className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 w-[min(92vw,900px)] rounded-xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl backdrop-blur-md animate-slideInUp"
+      className="fixed bottom-3 left-1/2 z-30 -translate-x-1/2 w-[min(94vw,900px)] rounded-xl border border-zinc-700/80 bg-zinc-950/95 shadow-2xl backdrop-blur-md animate-slideInUp"
       role="region"
     >
       {/* Header row */}
-      <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-zinc-800/80 px-3.5 py-2">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
-            {!replay && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />}
+            {!replay && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75 motion-reduce:animate-none" />}
             <span className={`relative inline-flex h-2 w-2 rounded-full ${replay ? "bg-amber-400" : "bg-red-500"}`} />
           </span>
-          <span className="text-[11px] font-bold uppercase tracking-widest text-zinc-100">
-            {replay ? "RECORDED REPLAY — AGENTIC FILMOPS" : "LIVE DEMO — AGENTIC FILMOPS"}
+          <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-zinc-100">
+            {replay ? "RECORDED REPLAY" : "LIVE DEMO"}
           </span>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {/* Current SPEC §15 criterion */}
           {activeBeat.criterion > 0 && (
             <span className="hidden sm:inline rounded bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300 font-mono">
@@ -168,9 +193,9 @@ export function DemoTimeline({
           </span>
           <button
             type="button"
-            onClick={() => setIsMinimized(true)}
+            onClick={() => setUserMinimized(true)}
             aria-label="Minimize demo timeline"
-            className="rounded p-1 text-xs text-zinc-400 hover:text-zinc-100 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-colors focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
             title="Minimize to floating pill"
           >
             ▼
@@ -180,7 +205,7 @@ export function DemoTimeline({
               type="button"
               onClick={onClose}
               aria-label="Close demo timeline"
-              className="rounded p-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded text-xs text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition-colors focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
             >
               ✕
             </button>
@@ -201,7 +226,7 @@ export function DemoTimeline({
       </div>
 
       {/* Beat markers */}
-      <div className="relative px-4 py-3">
+      <div className="relative px-3.5 py-2.5">
         <div className="flex items-start justify-between gap-1 overflow-x-auto">
           {BEATS.map((beat, i) => {
             const isActive = i === activeBeatIndex;
@@ -218,7 +243,7 @@ export function DemoTimeline({
                 <span
                   className={`h-2 w-2 rounded-full shrink-0 ${
                     isActive
-                      ? `${beat.accent} ring-2 ring-offset-1 ring-offset-zinc-950 ring-current animate-pulse`
+                      ? `${beat.accent} ring-2 ring-offset-1 ring-offset-zinc-950 ring-current animate-pulse motion-reduce:animate-none`
                       : isPast
                       ? "bg-zinc-500"
                       : "bg-zinc-700"
@@ -230,7 +255,7 @@ export function DemoTimeline({
                 </span>
                 {/* Label */}
                 <span
-                  className={`text-center text-[9px] font-semibold leading-tight ${
+                  className={`text-center text-[9px] font-semibold leading-tight truncate max-w-full ${
                     isActive ? "text-zinc-100" : "text-zinc-500"
                   }`}
                 >

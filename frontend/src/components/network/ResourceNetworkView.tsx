@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+
 import ReactFlow, {
   Background,
   Controls,
@@ -402,75 +403,93 @@ export function ResourceNetworkView({ events = [] }: ResourceNetworkViewProps) {
     ];
   }, [events.length, agentStatuses]);
 
+  const [isExpanded, setIsExpanded] = useState(true);
+
   return (
     <section
       aria-label="Resource Network Graph"
-      className="rounded-lg border border-purple-500/30 bg-zinc-950 p-4 shadow-xl"
+      className="rounded-lg border border-purple-500/30 bg-zinc-950 p-3.5 sm:p-4 shadow-xl"
     >
       {/* Header */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800 pb-2.5">
         <div className="flex items-center gap-2">
-          <span className="flex h-2.5 w-2.5 rounded-full bg-purple-400 ring-2 ring-purple-500/30 animate-pulse" />
+          <span className="flex h-2.5 w-2.5 rounded-full bg-purple-400 ring-2 ring-purple-500/30 animate-pulse motion-reduce:animate-none" />
           <h3 className="text-xs font-bold tracking-wider text-purple-300 uppercase">
             Production Resource Network
           </h3>
-          <span className="rounded bg-purple-950/80 px-2 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-800/40">
+          <span className="rounded bg-purple-950/80 px-2 py-0.5 text-[10px] font-semibold text-purple-400 border border-purple-800/40 hidden xs:inline">
             SPEC §9.4 Flagship View
           </span>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-3 text-[10px] text-zinc-400">
-          <div className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-purple-400" />
-            <span>Orchestrator</span>
+        <div className="flex items-center gap-3">
+          {/* Legend */}
+          <div className="hidden sm:flex items-center gap-2.5 text-[10px] text-zinc-400">
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-purple-400" />
+              <span>Orchestrator</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-blue-400" />
+              <span>MCP</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              <span>Agent</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-cyan-400" />
+              <span>External</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-blue-400" />
-            <span>MCP</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            <span>Agent</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-cyan-400" />
-            <span>External</span>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsExpanded((prev) => !prev)}
+            aria-expanded={isExpanded}
+            className="rounded border border-zinc-700 bg-zinc-800/80 px-2 py-1 text-[10px] font-bold uppercase text-zinc-300 hover:bg-zinc-700 transition-colors focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:outline-none"
+          >
+            {isExpanded ? "▲ Hide Graph" : "▼ Show Graph"}
+          </button>
         </div>
       </div>
 
-      {/* Propagation Path Caption */}
-      <div className="mb-3 rounded bg-zinc-900/60 px-3 py-1.5 text-[11px] text-zinc-400 border border-zinc-800/80 flex items-center justify-between">
-        <span>
-          <strong className="text-zinc-200">Incident Propagation:</strong> Scene 42 → Weather Alert → Orchestrator → Domain Agents → External Contacts
-        </span>
-        <span className="text-[10px] text-purple-400 font-mono">
-          {events.length} stream events synchronized
-        </span>
-      </div>
+      {isExpanded && (
+        <>
+          {/* Propagation Path Caption */}
+          <div className="mb-3 rounded bg-zinc-900/60 px-3 py-1.5 text-[11px] text-zinc-400 border border-zinc-800/80 flex flex-wrap items-center justify-between gap-1">
+            <span>
+              <strong className="text-zinc-200">Incident Propagation:</strong> Scene 42 → Weather Alert → Orchestrator → Domain Agents → External Contacts
+            </span>
+            <span className="text-[10px] text-purple-400 font-mono">
+              {events.length} stream events synchronized
+            </span>
+          </div>
 
-      {/* React Flow Container */}
-      <div
-        role="region"
-        aria-label="Resource Dependency Graph Canvas"
-        className="h-[460px] w-full rounded border border-zinc-900 bg-zinc-950/90"
-      >
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          fitView
-          preventScrolling={false}
-          attributionPosition="bottom-right"
-          proOptions={{ hideAttribution: true }}
-          minZoom={0.5}
-          maxZoom={1.5}
-        >
-          <Background color="#27272a" gap={16} size={1} />
-          <Controls className="bg-zinc-900 border-zinc-800 fill-zinc-300" />
-        </ReactFlow>
-      </div>
+          {/* React Flow Container */}
+          <div
+            role="region"
+            aria-label="Resource Dependency Graph Canvas"
+            className="h-[360px] sm:h-[460px] w-full rounded border border-zinc-900 bg-zinc-950/90"
+          >
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              fitView
+              preventScrolling={false}
+              attributionPosition="bottom-right"
+              proOptions={{ hideAttribution: true }}
+              minZoom={0.5}
+              maxZoom={1.5}
+            >
+              <Background color="#27272a" gap={16} size={1} />
+              <Controls className="bg-zinc-900 border-zinc-800 fill-zinc-300" />
+            </ReactFlow>
+          </div>
+        </>
+      )}
     </section>
   );
 }
+

@@ -434,7 +434,7 @@ export function ActiveIncidentCard({
 
       {/* Live Coordination, Activity Monitor & Communication Views */}
       {(analysis || analyzing) && (
-        <div id="agent-orchestration-section" className="mt-6 space-y-4">
+        <div id="agent-orchestration-section" className="mt-6 space-y-4 scroll-mt-24">
           {runtimeMode === "LIVE_GEMINI" && streamState && <div className="flex items-center gap-2"><p className="text-[10px] font-mono text-zinc-400" role="status">EVENT STREAM: {streamState}</p>{streamState === "FAILED" && <button type="button" onClick={() => { setError(null); setStreamGeneration((value) => value + 1); }} className="text-[10px] font-bold text-cyan-300 underline">Retry event stream</button>}</div>}
           {/* Resource Network View (SPEC §9.4 Flagship Screen) */}
           <ResourceNetworkView events={events} />
@@ -444,28 +444,34 @@ export function ActiveIncidentCard({
 
           {/* 2-Column Grid: Communication Mock (SPEC §9.5) & MCP Activity Monitor (SPEC §9.3) */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ExternalCommunicationMock />
-            <McpActivityMonitor events={events} replay={runtimeMode === "RECORDED_REPLAY"} />
+            <div id="external-comms-section" className="scroll-mt-24">
+              <ExternalCommunicationMock />
+            </div>
+            <div id="mcp-activity-section" className="scroll-mt-24">
+              <McpActivityMonitor events={events} replay={runtimeMode === "RECORDED_REPLAY"} />
+            </div>
           </div>
         </div>
       )}
 
       {/* Step 2: Approval Gate (SPEC §9.9) */}
       {analysis?.status === "COMPLETED" && !analysis.decision && (
-        <div id="option-comparison-section" className="mt-6">
-          <ApprovalPanel
-            analysis={analysis}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            isSubmitting={isSubmitting}
-          />
+        <div id="replan-options-section" className="mt-6 scroll-mt-24">
+          <div id="approval-section" className="scroll-mt-24">
+            <ApprovalPanel
+              analysis={analysis}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              isSubmitting={isSubmitting}
+            />
+          </div>
         </div>
       )}
 
       {/* Step 3 & 4: Execution Checklist & Summary (SPEC §9.10 / §9.11) */}
-      <div id="execution-summary-section" className="space-y-4">
+      <div id="execution-summary-section" className="space-y-4 scroll-mt-24">
         {execution && (
-          <div className="mt-6">
+          <div id="execution-checklist-section" className="mt-6 scroll-mt-24">
             <ExecutionChecklist
               execution={execution}
               onRetry={retryExecution}
@@ -475,7 +481,7 @@ export function ActiveIncidentCard({
         )}
 
         {isResolved && (
-          <div className="mt-6">
+          <div id="summary-section" className="mt-6 scroll-mt-24">
             <BeforeAfterSummary
               incident={incident}
               analysis={analysis}
@@ -486,6 +492,7 @@ export function ActiveIncidentCard({
           </div>
         )}
       </div>
+
 
       {/* Step 3b: Rejected feedback */}
       {isRejected && (
